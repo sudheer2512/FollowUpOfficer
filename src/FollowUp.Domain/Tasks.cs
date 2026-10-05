@@ -65,6 +65,8 @@ public sealed class WorkTask : Entity, IStamped
     /// <summary>The first committed due date — kept for analytics when extensions are granted (spec §44).</summary>
     public DateOnly? OriginalDueDate { get; set; }
     public int DueDateChangeCount { get; set; }
+    /// <summary>The UTC instant the task becomes overdue (due date + due time in the business calendar). Stored for fast queries.</summary>
+    public DateTime? DeadlineAt { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
@@ -102,6 +104,7 @@ public sealed class WorkTask : Entity, IStamped
     public int EscalationCount { get; set; }
     public bool IsBlocked { get; set; }
     public string? BlockedReason { get; set; }
+    public DateTime? BlockedSince { get; set; }
     /// <summary>Last meaningful activity by anyone (comment, status change, email, Teams).</summary>
     public DateTime? LastActivityAt { get; set; }
     /// <summary>Last activity by the responsible people — drives no-response detection.</summary>
