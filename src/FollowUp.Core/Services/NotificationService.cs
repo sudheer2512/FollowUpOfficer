@@ -230,6 +230,8 @@ public sealed class NotificationService(FollowUpDbContext db, IClock clock, Cale
                 html.Append("</p>");
             }
             html.Append($"<p><a href=\"{E(link)}\">Open {E(t?.Number ?? "Follow-up Officer")}</a></p>");
+            // Signature doubles as the loop guard: synchronised copies of our own posts are never re-processed.
+            html.Append("<p>— Digital Follow-up Officer</p>");
         }
         else
         {
