@@ -1,6 +1,34 @@
-var builder = WebApplication.CreateBuilder(args);
+using FollowUp.Api.Infrastructure;
+using FollowUp.Core;
+using FollowUp.Core.Platform;
+using Microsoft.Extensions.Hosting.WindowsServices;
+
+// FollowUp Officer — HTTP API, SignalR hub and Angular host (spec §59: also installable as the Windows service "FollowUpOfficer.Api").
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null,
+});
+builder.Host.UseWindowsService(o => o.ServiceName = "FollowUpOfficer.Api");
+
+HostDatabase.NormalisePaths(builder.Configuration, builder.Environment.ContentRootPath);
+var connectionString = builder.Configuration.GetConnectionString("FollowUp");
+var useSqlite = HostDatabase.UseSqlite(builder.Configuration, builder.Environment.ContentRootPath, ref connectionString);
+builder.Services.AddFollowUpCore(builder.Configuration, "Api", connectionString, useSqlite);
+
+// INTEGRATION: AddMicrosoft365Integration + AddFollowUpAI are registered here after merge
+// builder.Services.AddMicrosoft365Integration(builder.Configuration, connectionString);
+// builder.Services.AddFollowUpAI(builder.Configuration);
+builder.Services.AddFallbackPorts();
+
+builder.Services.AddFollowUpApi(builder.Configuration);
+
 var app = builder.Build();
 
-app.MapGet("/", () => "Hello World!");
+await StartupInitializer.InitialiseAsync(app.Services, app.Logger, runSeeders: true);
 
+app.UseFollowUpApi();
 app.Run();
+
+/// <summary>Entry point marker for WebApplicationFactory-based tests.</summary>
+public partial class Program;
