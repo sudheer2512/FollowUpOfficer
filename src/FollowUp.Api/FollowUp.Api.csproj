@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Description>ASP.NET Core Web API + SignalR + Angular host. Can also run the background processor in-process; installable as a Windows Service.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FollowUp.Core\FollowUp.Core.csproj" />
+    <ProjectReference Include="..\FollowUp.Integrations\FollowUp.Integrations.csproj" />
+    <ProjectReference Include="..\FollowUp.AI\FollowUp.AI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
+  </ItemGroup>
+
+</Project>

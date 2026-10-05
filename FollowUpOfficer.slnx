@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FollowUp.AI/FollowUp.AI.csproj" />
+    <Project Path="src/FollowUp.Api/FollowUp.Api.csproj" />
+    <Project Path="src/FollowUp.Core/FollowUp.Core.csproj" />
+    <Project Path="src/FollowUp.Domain/FollowUp.Domain.csproj" />
+    <Project Path="src/FollowUp.Integrations/FollowUp.Integrations.csproj" />
+    <Project Path="src/FollowUp.Worker/FollowUp.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FollowUp.Tests/FollowUp.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,16 @@
+bin/
+obj/
+*.user
+.vs/
+node_modules/
+.angular/
+dist/
+src/FollowUp.Api/wwwroot/
+src/FollowUp.Api/data/
+src/FollowUp.Worker/data/
+data/
+*.db
+*.db-shm
+*.db-wal
+TestResults/
+.claude/worktrees/

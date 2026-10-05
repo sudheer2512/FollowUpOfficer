@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Domain model and pure rule engines: recurrence, working calendars, follow-up decisions, health and attention scoring, escalation ladders, task access.</Description>
+  </PropertyGroup>
+
+</Project>
