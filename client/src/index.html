@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FollowUp Officer</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FollowUp Officer — CEO delegated tasks, follow-up and executive monitoring.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script>
+    // Apply a stored theme before first paint to avoid a light flash in dark mode.
+    try {
+      var t = localStorage.getItem('fu.theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <fu-root>
+    <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:'Segoe UI',system-ui,sans-serif;color:#687083;font-size:14px">Loading FollowUp Officer…</div>
+  </fu-root>
+  <noscript>FollowUp Officer needs JavaScript enabled.</noscript>
+</body>
+</html>

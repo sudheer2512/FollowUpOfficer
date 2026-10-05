@@ -1,0 +1,169 @@
+<a class="skip-link" href="#fu-main">Skip to content</a>
+
+<div class="frame" [class.collapsed]="collapsed()" [class.mobile-open]="mobileOpen()">
+  <!-- ── Left navigation ── -->
+  <nav class="sidenav" aria-label="Main navigation">
+    <div class="brand">
+      <a routerLink="/" class="brand-link" aria-label="FollowUp Officer home">
+        <span class="logo" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        </span>
+        <span class="brand-text">
+          <span class="name">FollowUp Officer</span>
+          @if (system.organisation()) {
+            <span class="org truncate">{{ system.organisation() }}</span>
+          }
+        </span>
+      </a>
+    </div>
+
+    <div class="nav-scroll">
+      @for (section of nav(); track section.label) {
+        <div class="nav-section">
+          <div class="nav-label">{{ section.label }}</div>
+          @for (item of section.items; track item.route) {
+            <a
+              class="nav-item"
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: !!item.exact }"
+              [attr.title]="collapsed() ? item.label : null"
+              [attr.aria-label]="collapsed() ? item.label : null"
+            >
+              <fu-icon [name]="item.icon" [size]="17" />
+              <span class="nav-text">{{ item.label }}</span>
+              @if (badge(item.badge); as n) {
+                <span class="nav-badge" [attr.aria-label]="n + ' open'">{{ n }}</span>
+              }
+            </a>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="nav-foot">
+      <span class="conn" [class]="'conn conn-' + connection()" [attr.title]="'Live updates: ' + connection()">
+        <span class="dot"></span><span class="nav-text">{{ connection() === 'connected' ? 'Live' : connection() === 'reconnecting' ? 'Reconnecting…' : 'Offline' }}</span>
+      </span>
+      <button type="button" class="btn btn-ghost btn-icon btn-sm collapse-btn" (click)="toggleCollapsed()" [attr.aria-label]="collapsed() ? 'Expand navigation' : 'Collapse navigation'">
+        <fu-icon [name]="collapsed() ? 'chevron-right' : 'chevron-left'" />
+      </button>
+    </div>
+  </nav>
+  <div class="nav-scrim" (click)="mobileOpen.set(false)" aria-hidden="true"></div>
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <button type="button" class="btn btn-ghost btn-icon hamburger" aria-label="Open navigation" (click)="mobileOpen.set(true)">
+      <fu-icon name="menu" />
+    </button>
+
+    <div class="search-wrap" role="search">
+      <div class="input-with-icon">
+        <fu-icon name="search" />
+        <input
+          id="fu-global-search"
+          class="input search-input"
+          type="search"
+          autocomplete="off"
+          placeholder="Search tasks, people, emails, commitments…"
+          aria-label="Global search"
+          [value]="searchText()"
+          (input)="onSearchInput($any($event.target).value)"
+          (focus)="searchOpen.set(true)"
+          (keydown)="onSearchKey($event)"
+        />
+        <span class="kbd search-kbd" aria-hidden="true">Ctrl K</span>
+      </div>
+      @if (searchOpen() && searchText().trim().length >= 2) {
+        <div class="menu search-pop" role="listbox" aria-label="Search suggestions">
+          @if (searchLoading() && !searchHits().length) {
+            <div class="menu-label">Searching…</div>
+          }
+          @for (h of searchHits(); track h.kind + h.id; let i = $index) {
+            <button type="button" class="menu-item hit" role="option" [class.hl]="i === searchActive()" [attr.aria-selected]="i === searchActive()" (click)="openHit(h)">
+              <span class="chip sm">{{ h.kind }}</span>
+              <span class="hit-main">
+                <span class="truncate">{{ h.taskNumber ? h.taskNumber + ' · ' : '' }}{{ h.title }}</span>
+                @if (h.snippet) {
+                  <span class="xsmall muted truncate">{{ h.snippet }}</span>
+                }
+              </span>
+            </button>
+          }
+          @if (!searchLoading() && !searchHits().length) {
+            <div class="menu-label">No quick matches</div>
+          }
+          <div class="menu-sep"></div>
+          <button type="button" class="menu-item" (click)="submitSearch()">
+            <fu-icon name="search" /> See all results for “{{ searchText().trim() }}”
+          </button>
+        </div>
+      }
+    </div>
+
+    <span class="spacer"></span>
+
+    <button type="button" class="btn btn-primary delegate-btn" (click)="delegate()" aria-keyshortcuts="N" title="Delegate a task (N)">
+      <fu-icon name="plus" />
+      <span class="hide-sm">Delegate</span>
+      <span class="kbd hide-sm" aria-hidden="true">N</span>
+    </button>
+    <button type="button" class="btn btn-icon" (click)="delegate(true)" aria-label="Delegate by voice" title="Delegate by voice">
+      <fu-icon name="mic" />
+    </button>
+    <button type="button" class="btn btn-ghost btn-icon bell" (click)="toggleInbox()" [attr.aria-label]="'Notifications' + (inbox.unread() ? ', ' + inbox.unread() + ' unread' : '')" [attr.aria-expanded]="inbox.open()">
+      <fu-icon name="bell" [size]="18" />
+      @if (inbox.unread() > 0) {
+        <span class="bell-badge">{{ inbox.unread() > 99 ? '99+' : inbox.unread() }}</span>
+      }
+    </button>
+
+    <div class="user-menu-wrap">
+      <button type="button" class="user-btn" (click)="userMenuOpen.set(!userMenuOpen())" aria-haspopup="menu" [attr.aria-expanded]="userMenuOpen()" aria-label="User menu">
+        <fu-avatar [name]="session.me()?.name" />
+        <span class="user-name hide-sm">{{ session.firstName() }}</span>
+        <fu-icon name="chevron-down" [size]="14" class="hide-sm" />
+      </button>
+      @if (userMenuOpen()) {
+        <div class="menu user-menu" role="menu">
+          <div class="me">
+            <div class="strong">{{ session.me()?.name }}</div>
+            <div class="small muted">{{ session.me()?.jobTitle }}{{ session.me()?.departmentName ? ' · ' + session.me()?.departmentName : '' }}</div>
+            <div class="xsmall subtle">{{ session.me()?.email }}</div>
+          </div>
+          <div class="menu-sep"></div>
+          <div class="menu-label">Theme</div>
+          <div class="theme-row">
+            <button type="button" class="btn btn-sm" [class.btn-primary]="theme.preference() === 'light'" (click)="theme.set('light')" aria-label="Light theme"><fu-icon name="sun" /></button>
+            <button type="button" class="btn btn-sm" [class.btn-primary]="theme.preference() === 'dark'" (click)="theme.set('dark')" aria-label="Dark theme"><fu-icon name="moon" /></button>
+            <button type="button" class="btn btn-sm" [class.btn-primary]="theme.preference() === 'system'" (click)="theme.set('system')" aria-label="Follow system theme"><fu-icon name="monitor" /></button>
+            <span class="small muted">{{ themeLabel() }}</span>
+          </div>
+          <div class="menu-sep"></div>
+          <a class="menu-item" routerLink="/me" role="menuitem"><fu-icon name="home" /> My work</a>
+          <div class="menu-item static small muted"><fu-icon name="keyboard" /> <span>N delegate · Ctrl K search</span></div>
+          <div class="menu-sep"></div>
+          <button type="button" class="menu-item danger" role="menuitem" (click)="signOut()"><fu-icon name="logout" /> Sign out</button>
+        </div>
+      }
+    </div>
+  </header>
+
+  <!-- ── Page ── -->
+  <main id="fu-main" class="main" tabindex="-1">
+    <router-outlet />
+  </main>
+</div>
+
+@if (inbox.open()) {
+  <fu-inbox-drawer />
+}
+
+@if (launcher.request()) {
+  @defer (on immediate) {
+    <fu-delegate-dialog />
+  } @loading (minimum 150ms) {
+    <div class="defer-scrim"><div class="card pad small muted">Opening…</div></div>
+  }
+}
