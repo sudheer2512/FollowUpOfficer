@@ -112,6 +112,15 @@ public sealed record MonitorOverview(IntegrationProbe? Probe, string Mode, List<
 
 public sealed record HostHeartbeat(string Host, DateTime LastSeen, int Executions24h);
 
+public sealed record AuditEntryDto(Guid Id, DateTime At, string ActorName, string Action, string EntityType, Guid? EntityId, Guid? TaskId,
+    string? TaskNumber, string? Field, string? OldValue, string? NewValue, string? Details, ChangeSource Source);
+
+public sealed record AuditQuery(Guid? TaskId, string? EntityType, string? Action, DateOnly? From, DateOnly? To, int Page = 1, int PageSize = 100);
+
+/// <summary>The signed-in user (GET /api/auth/me).</summary>
+public sealed record MeDto(Guid EmployeeId, string Name, string Email, string? JobTitle, Guid? DepartmentId, string? DepartmentName,
+    List<string> Roles, bool IsExecutive, bool IsAdministrator, bool IsManager, List<Guid> TeamIds, List<Guid> LedTeamIds, string UserName);
+
 /// <summary>Runtime-editable settings (subset of <see cref="Common.FollowUpOptions"/>).</summary>
 public sealed record RuntimeSettings
 {
