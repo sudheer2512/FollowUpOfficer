@@ -520,8 +520,8 @@ public static class DemoSeeder
             // S12 — Completed work for reports (some late, one reopened).
             var done = new (string Key, string Title, string Owner, string Dept, int Created, int Due, int Completed, Criticality Crit)[]
             {
-                ("d1", "Q2 board presentation", "priya", "FIN", -24, -18, -18, Criticality.Important),
-                ("d2", "Renew Bengaluru office lease", "suresh", "ADMIN", -23, -15, -13, Criticality.Important),
+                ("d1", "Q2 board presentation", "priya", "FIN", -21, -18, -18, Criticality.Important),
+                ("d2", "Renew Bengaluru office lease", "suresh", "ADMIN", -21, -15, -13, Criticality.Important),
                 ("d3", "Fix invoice PDF alignment for Arabic", "neha", "DEV", -22, -19, -20, Criticality.Normal),
                 ("d4", "Publish September customer newsletter", "nikhil", "MKT", -20, -14, -14, Criticality.Normal),
                 ("d5", "Close September books", "sanjay", "FIN", -19, -12, -11, Criticality.Important),

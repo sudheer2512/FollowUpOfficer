@@ -27,6 +27,7 @@ public class ClassifierTests
     [InlineData("The dealer CRM screens have been completed and deployed.", MessageCategory.Completion)]
     [InlineData("Done.", MessageCategory.Completion)]
     [InlineData("We have finished the migration.", MessageCategory.Completion)]
+    [InlineData("Hi,\n\nFixed and deployed to UAT yesterday. Task completed — regression results are attached to the ticket.\n\nRegards,\nImran", MessageCategory.Completion)]
     [InlineData("The release is delayed because testing will take longer than planned.", MessageCategory.Delay)]
     [InlineData("Sorry, this is slipping; we need more time.", MessageCategory.Delay)]
     [InlineData("Can we move the deadline to 20 Oct?", MessageCategory.DeadlineChange)]

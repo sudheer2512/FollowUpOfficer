@@ -39,14 +39,38 @@ public sealed class AttentionService(FollowUpDbContext db, ActorContext actor, I
         };
     }
 
-    public Task<int> CountOpenAsync(CancellationToken ct) => ByStatus("Open").CountAsync(ct);
+    /// <summary>Open matters needing the CEO: one per task (several reasons on one task are one matter) plus non-task items.</summary>
+    public async Task<int> CountOpenAsync(CancellationToken ct)
+    {
+        var subjects = await ByStatus("Open").Select(a => a.TaskId).ToListAsync(ct);
+        return subjects.Where(t => t is not null).Distinct().Count() + subjects.Count(t => t is null);
+    }
 
     public async Task<List<AttentionItemDto>> ListAsync(string? status, CancellationToken ct, int take = 200, Criticality? minCriticality = null)
     {
         var q = ByStatus(status);
         if (minCriticality is { } min) q = q.Where(a => a.Task != null && a.Task.Criticality >= min);
-        var rows = await q.OrderByDescending(a => a.Score).ThenByDescending(a => a.UpdatedAt).Take(Math.Clamp(take, 1, 500)).ToListAsync(ct);
-        return await ToDtosAsync(rows, ct);
+        var rows = await q.OrderByDescending(a => a.Score).ThenByDescending(a => a.UpdatedAt).Take(500).ToListAsync(ct);
+        var open = string.IsNullOrWhiteSpace(status) || status.Equals("open", StringComparison.OrdinalIgnoreCase);
+        if (open) rows = Consolidate(rows);
+        return await ToDtosAsync(rows.Take(Math.Clamp(take, 1, 500)).ToList(), ct);
+    }
+
+    /// <summary>
+    /// Exception-oriented view (spec §39): the CEO sees each task once — its highest-scoring reason — with the other
+    /// reasons folded into the detail. Resolving that item surfaces the next reason if it still applies.
+    /// </summary>
+    private static List<AttentionItem> Consolidate(List<AttentionItem> rows)
+    {
+        var result = new List<AttentionItem>();
+        foreach (var group in rows.GroupBy(r => r.TaskId ?? r.Id))
+        {
+            var top = group.First();
+            var others = group.Skip(1).Select(o => Text.Humanize(o.Type)).Where(t => t != Text.Humanize(top.Type)).Distinct().ToList();
+            if (others.Count > 0) top.Detail = $"{top.Detail} Also: {string.Join(", ", others).ToLowerInvariant()}.";
+            result.Add(top);
+        }
+        return [.. result.OrderByDescending(r => r.Score).ThenByDescending(r => r.UpdatedAt)];
     }
 
     public async Task<AttentionItemDto> DecideAsync(Guid id, AttentionDecision d, CancellationToken ct)

@@ -126,7 +126,8 @@ public sealed class EscalationService(
             }, ct);
             audit.Record(d.Step.Level <= 1 ? "DeadlineNotice" : "Escalated", nameof(TaskEscalation), esc.Id, task.Id, "Level", null, d.Step.Level.ToString(), d.Reason);
             if (toCeo || d.Step.RaiseCeoAttention)
-                monitoring.UpsertAttention(AttentionType.EscalatedToCeo, $"esc-ceo:{d.IdempotencyKey}", task,
+                // One CEO escalation item per task per deadline cycle, however many ladder steps reach the CEO.
+                monitoring.UpsertAttention(AttentionType.EscalatedToCeo, $"esc-ceo:{task.Id:N}:{task.DueDate:yyyyMMdd}", task,
                     $"Escalated to you: {task.Title}", $"{d.Reason}. {task.LastUpdateSummary}".Trim(), task.AttentionScore + 10);
         }
         await monitoring.RefreshAsync(task, ct);

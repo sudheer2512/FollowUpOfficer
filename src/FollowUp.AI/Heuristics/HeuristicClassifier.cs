@@ -387,7 +387,7 @@ public sealed partial class HeuristicClassifier
     [GeneratedRegex(@"\b(?:i|we)\s+(?:(?:have|'ve|’ve|just|finally|successfully|now)\s+)*(?:completed|finished|deployed|delivered|closed|resolved|fixed|submitted|shipped|implemented|uploaded|filed|wrapped\s+up)\b", Opts)]
     private static partial Regex CompletionFirstPersonRegex();
 
-    [GeneratedRegex(@"(?:^|[.!\n]\s*)(?:task\s+|work\s+|it'?s\s+)?(?:all\s+)?(?:done|completed|finished|resolved|fixed|closed|deployed|delivered)\s*(?:[.!]|$)|\b(?:went\s+live|is\s+(?:now\s+)?live|now\s+live|all\s+done)\b", Opts | RegexOptions.Multiline)]
+    [GeneratedRegex(@"(?:^|[.!\n]\s*)(?:task\s+|work\s+|it'?s\s+)?(?:all\s+)?(?:done|completed|finished|resolved|fixed|closed|deployed|delivered)\s*(?:[.!,;:—–]|\s-\s|$)|\b(?:went\s+live|is\s+(?:now\s+)?live|now\s+live|all\s+done)\b|(?:^|[.!\n]\s*)(?:fixed|deployed|released|delivered)\s+(?:and\s+(?:deployed|tested|verified|released)\s+)?(?:to|in|on)\s+(?:uat|production|prod|staging|live)\b", Opts | RegexOptions.Multiline)]
     private static partial Regex CompletionShortRegex();
 
     [GeneratedRegex(@"(?:n't|n’t|'ll|’ll|\b(?:not|never|yet\s+to|will|should|shall|going\s+to|once|when|after|if|until|before|almost|nearly|partially|partly|be\s+able\s+to|expect(?:ed)?\s+to|hope\s+to|to\s+be))\b[^.!?\n]*$", Opts)]
