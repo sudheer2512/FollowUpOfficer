@@ -8,7 +8,9 @@ dist/
 src/FollowUp.Api/wwwroot/
 src/FollowUp.Api/data/
 src/FollowUp.Worker/data/
-data/
+# Runtime data only at the repository root. An unanchored "data/" also matched src/FollowUp.Core/Data/
+# (the EF model and migrations) because git on Windows ignores case.
+/data/
 *.db
 *.db-shm
 *.db-wal

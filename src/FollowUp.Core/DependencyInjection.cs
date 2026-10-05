@@ -65,6 +65,24 @@ public static class DependencyInjection
         services.AddScoped<ISynchronizationCheckpointService>(sp => sp.GetRequiredService<SyncService>());
         services.AddScoped<NotificationDispatcher>();
 
+        // Read side, dashboards, AI-assisted questions, administration
+        services.AddSingleton<RuntimeSettingsCache>();
+        services.AddScoped<SettingsService>();
+        services.AddScoped<TaskQueryService>();
+        services.AddScoped<AttentionService>();
+        services.AddScoped<DigestService>();
+        services.AddScoped<DashboardService>();
+        services.AddScoped<AskService>();
+        services.AddScoped<ReportService>();
+        services.AddScoped<OrgService>();
+        services.AddScoped<PlanningService>();
+        services.AddScoped<AdminService>();
+        services.AddScoped<CalendarSyncService>();
+        services.AddScoped<InboxService>();
+        services.AddScoped<AccountService>();
+        services.AddScoped<AttachmentService>();
+        services.AddHostedService<RuntimeSettingsRefresher>();
+
         services.AddScoped<IBackgroundJob, RecurrenceJob>();
         services.AddScoped<IBackgroundJob, FollowUpJob>();
         services.AddScoped<IBackgroundJob, DeadlineJob>();
@@ -77,6 +95,10 @@ public static class DependencyInjection
         services.AddScoped<IBackgroundJob, NotificationJob>();
         services.AddScoped<IBackgroundJob, AttentionJob>();
         services.AddScoped<IBackgroundJob, MaintenanceJob>();
+        services.AddScoped<IBackgroundJob, DigestJob>();
+        services.AddScoped<IBackgroundJob, WeeklyReviewJob>();
+        services.AddScoped<IBackgroundJob, CalendarSyncJob>();
+        services.AddScoped<IBackgroundJob, DirectoryJob>();
         services.AddHostedService<JobEngine>();
         return services;
     }
