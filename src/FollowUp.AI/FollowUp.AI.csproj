@@ -19,4 +19,8 @@
     <InternalsVisibleTo Include="FollowUp.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.53.0" />
+  </ItemGroup>
+
 </Project>
