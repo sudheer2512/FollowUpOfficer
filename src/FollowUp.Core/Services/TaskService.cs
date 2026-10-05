@@ -739,7 +739,8 @@ public sealed class TaskService(
         }
         else
         {
-            await FinaliseCompletionAsync(task, submission, now, approvers.Count == 0 && task.RequiresApproval ? "No approver available" : "No approval required", ct);
+            // When the person submitting is the only approver (e.g. the delegator accepting a reported completion), that is the confirmation.
+            await FinaliseCompletionAsync(task, submission, now, approvers.Count == 0 && task.RequiresApproval ? $"Completion confirmed by {actor.Name} (approver)" : "No approval required", ct);
         }
 
         await monitoring.RefreshAsync(task, ct);

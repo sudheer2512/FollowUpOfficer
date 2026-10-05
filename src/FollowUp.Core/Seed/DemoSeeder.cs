@@ -25,8 +25,8 @@ public static class DemoSeeder
     public const string Domain = "wings.example";
     public const string ServiceAccount = "followup@" + Domain;
 
-    /// <summary>Graph / Entra object id used for a mailbox in the emulator tenant (deterministic).</summary>
-    public static string ExternalId(string email) => Ids.Deterministic("aad", email.ToLowerInvariant()).ToString();
+    /// <summary>Graph / Entra object id used for a mailbox in the emulator tenant — same formula as GraphEmulatorIds.ForUser.</summary>
+    public static string ExternalId(string email) => Ids.Deterministic("m365-user", email.Trim().ToLowerInvariant()).ToString();
 
     public static async Task RunAsync(IServiceProvider services, ILogger logger, CancellationToken ct)
     {

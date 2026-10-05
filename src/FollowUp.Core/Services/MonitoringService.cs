@@ -43,14 +43,21 @@ public sealed class MonitoringService(FollowUpDbContext db, IClock clock, Calend
         int? daysUntilDue = !overdue && task.DueDate is { } d2 ? d2.DayNumber - today.DayNumber : null;
 
         // Dependencies: finish-to-start waits for completion, start-to-start for a start, external until resolved.
-        var deps = await db.TaskDependencies.Where(x => x.TaskId == task.Id && !x.IsResolved)
-            .Select(x => new
+        // Tracked + pending rows are used so a refresh inside a unit of work sees its own unsaved changes.
+        var depRows = (await WithLocalAsync(db.TaskDependencies.Where(x => x.TaskId == task.Id), x => x.TaskId == task.Id, ct))
+            .Where(x => !x.IsResolved && db.Entry(x).State != EntityState.Deleted).ToList();
+        var predecessorIds = depRows.Where(x => x.DependsOnTaskId is not null).Select(x => x.DependsOnTaskId!.Value).ToList();
+        var predecessors = await db.Tasks.Where(t => predecessorIds.Contains(t.Id)).Select(t => new { t.Id, t.Number, t.Status, t.DepartmentId }).ToListAsync(ct);
+        var deps = depRows.Select(x =>
+        {
+            var p = predecessors.FirstOrDefault(t => t.Id == x.DependsOnTaskId);
+            var localStatus = x.DependsOnTaskId is { } pid ? db.Tasks.Local.FirstOrDefault(t => t.Id == pid)?.Status : null;
+            return new
             {
                 x.Id, x.Type, x.ExternalDescription, x.ExternalParty, x.CreatedAt, x.DependsOnTaskId,
-                Number = x.DependsOnTask != null ? x.DependsOnTask.Number : null,
-                Status = x.DependsOnTask != null ? (WorkStatus?)x.DependsOnTask.Status : null,
-                DepartmentId = x.DependsOnTask != null ? x.DependsOnTask.DepartmentId : null,
-            }).ToListAsync(ct);
+                Number = p?.Number, Status = localStatus ?? p?.Status, DepartmentId = p?.DepartmentId,
+            };
+        }).ToList();
         var blocking = deps.Where(x => x.DependsOnTaskId is null
             || (x.Type == DependencyType.StartToStart
                 ? x.Status is WorkStatus.Draft or WorkStatus.Assigned or WorkStatus.AcknowledgementPending or WorkStatus.Accepted
@@ -71,17 +78,16 @@ public sealed class MonitoringService(FollowUpDbContext db, IClock clock, Calend
             if (wasBlocked) task.BlockedReason = null;
         }
 
-        var missedCommitments = await db.Commitments.CountAsync(c => c.TaskId == task.Id && c.Status == CommitmentStatus.Missed, ct)
-            + db.Commitments.Local.Count(c => c.TaskId == task.Id && c.Status == CommitmentStatus.Missed && db.Entry(c).State == EntityState.Added);
+        var commitments = await WithLocalAsync(db.Commitments.Where(c => c.TaskId == task.Id), c => c.TaskId == task.Id, ct);
+        var missedCommitments = commitments.Count(c => c.Status == CommitmentStatus.Missed);
         var dependents = await db.TaskDependencies.Where(x => x.DependsOnTaskId == task.Id)
             .Join(db.Tasks, x => x.TaskId, t => t.Id, (x, t) => t.Status)
             .CountAsync(st => st != WorkStatus.Completed && st != WorkStatus.Cancelled, ct);
-        var pendingApprovals = await db.TaskApprovals.Where(a => a.TaskId == task.Id && a.Round == task.CompletionRound && a.Decision == ApprovalDecision.Pending)
-            .OrderBy(a => a.Stage).ToListAsync(ct);
-        pendingApprovals.AddRange(db.TaskApprovals.Local.Where(a => a.TaskId == task.Id && a.Round == task.CompletionRound && a.Decision == ApprovalDecision.Pending && !pendingApprovals.Contains(a)));
+        var pendingApprovals = (await WithLocalAsync(db.TaskApprovals.Where(a => a.TaskId == task.Id && a.Round == task.CompletionRound), a => a.TaskId == task.Id, ct))
+            .Where(a => a.Round == task.CompletionRound && a.Decision == ApprovalDecision.Pending).ToList();
         var currentApproval = pendingApprovals.OrderBy(a => a.Stage).FirstOrDefault();
-        var pendingExtensions = await db.ExtensionRequests.Where(x => x.TaskId == task.Id && x.Status == ExtensionStatus.Pending).ToListAsync(ct);
-        pendingExtensions.AddRange(db.ExtensionRequests.Local.Where(x => x.TaskId == task.Id && x.Status == ExtensionStatus.Pending && !pendingExtensions.Contains(x)));
+        var pendingExtensions = (await WithLocalAsync(db.ExtensionRequests.Where(x => x.TaskId == task.Id), x => x.TaskId == task.Id, ct))
+            .Where(x => x.Status == ExtensionStatus.Pending).ToList();
         var awaitingCeo = (currentApproval is not null && execs.Contains(currentApproval.ApproverId))
             || pendingExtensions.Any(x => x.ApproverId is { } a && execs.Contains(a))
             || (task.Acknowledgement is AcknowledgementState.Declined or AcknowledgementState.ClarificationRequested && task.DelegatorId is { } del && execs.Contains(del));
@@ -122,12 +128,22 @@ public sealed class MonitoringService(FollowUpDbContext db, IClock clock, Calend
         task.AttentionScore = attention.Score;
         task.AttentionFactors = [.. health.Factors.Select(f => f with { Code = "health:" + f.Code }), .. attention.Factors];
 
-        await SyncAttentionAsync(task, signals, overdue, daysOverdue, currentApproval, pendingExtensions, blocking.Select(b => (b.DependsOnTaskId, b.DepartmentId, b.Number, b.CreatedAt)).ToList(), execs, now, ct);
+        await SyncAttentionAsync(task, signals, overdue, daysOverdue, currentApproval, pendingExtensions, blocking.Select(b => (b.DependsOnTaskId, b.DepartmentId, b.Number, b.CreatedAt)).ToList(),
+            commitments, execs, now, ct);
+    }
+
+    /// <summary>Rows from the database plus rows added in the current unit of work (tracked instances reflect unsaved edits).</summary>
+    private async Task<List<T>> WithLocalAsync<T>(IQueryable<T> query, Func<T, bool> localFilter, CancellationToken ct) where T : class
+    {
+        var list = await query.ToListAsync(ct);
+        foreach (var e in db.Set<T>().Local.Where(localFilter))
+            if (!list.Contains(e)) list.Add(e);
+        return list;
     }
 
     private async Task SyncAttentionAsync(WorkTask task, TaskSignals s, bool overdue, int daysOverdue, TaskApproval? currentApproval,
         List<ExtensionRequest> pendingExtensions, List<(Guid? TaskId, Guid? DepartmentId, string? Number, DateTime CreatedAt)> blocking,
-        HashSet<Guid> execs, DateTime now, CancellationToken ct)
+        List<Commitment> commitments, HashSet<Guid> execs, DateTime now, CancellationToken ct)
     {
         var active = new HashSet<string>();
         if (task.IsOpen)
@@ -172,7 +188,8 @@ public sealed class MonitoringService(FollowUpDbContext db, IClock clock, Calend
 
             if (important && task.DelegatorId is { } d2 && execs.Contains(d2))
             {
-                var suggestions = await db.TaskSuggestions.Where(x => x.TaskId == task.Id && x.Status == SuggestionStatus.Pending && x.Kind == SuggestionKind.MarkCompletedByAssignee).ToListAsync(ct);
+                var suggestions = (await WithLocalAsync(db.TaskSuggestions.Where(x => x.TaskId == task.Id), x => x.TaskId == task.Id, ct))
+                    .Where(x => x.Status == SuggestionStatus.Pending && x.Kind == SuggestionKind.MarkCompletedByAssignee);
                 foreach (var sug in suggestions)
                     active.Add(UpsertAttention(AttentionType.AiSuggestion, $"sugg:{sug.Id:N}", task,
                         $"Completion reported: {task.Title}", $"{sug.Explanation} ({sug.Confidence:P0} confidence) — confirm before closing.", task.AttentionScore,
@@ -190,8 +207,10 @@ public sealed class MonitoringService(FollowUpDbContext db, IClock clock, Calend
         if (task.IsOpen && (task.Criticality >= Criticality.Important || task.NotifyCeoOnDelay))
         {
             var cutoff = now.AddDays(-14);
-            var missed = await db.Commitments.Where(c => c.TaskId == task.Id && c.Status == CommitmentStatus.Missed && c.ResolvedAt >= cutoff)
-                .Select(c => new { c.Id, c.CommitmentDate, c.OriginalText, Who = c.Employee != null ? c.Employee.DisplayName : null }).ToListAsync(ct);
+            var missedRows = commitments.Where(c => c.Status == CommitmentStatus.Missed && c.ResolvedAt >= cutoff).ToList();
+            var whoIds = missedRows.Where(c => c.EmployeeId is not null).Select(c => c.EmployeeId!.Value).ToList();
+            var names = await db.Employees.Where(e => whoIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, e => e.DisplayName, ct);
+            var missed = missedRows.Select(c => new { c.Id, c.CommitmentDate, c.OriginalText, Who = c.EmployeeId is { } w && names.TryGetValue(w, out var n) ? n : null });
             foreach (var m in missed)
                 active.Add(UpsertAttention(AttentionType.CommitmentMissed, $"commit:{m.Id:N}", task, $"Commitment missed: {task.Title}",
                     $"{m.Who ?? "The team"} committed to {m.CommitmentDate:ddd d MMM}: \"{NotificationService.Shorten(m.OriginalText, 160)}\"", task.AttentionScore + 6,

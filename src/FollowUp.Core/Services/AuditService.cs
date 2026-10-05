@@ -13,26 +13,32 @@ namespace FollowUp.Core.Services;
 /// </summary>
 public sealed class AuditService(FollowUpDbContext db, ActorContext actor, IClock clock)
 {
-    private readonly Dictionary<string, string?> _lastHash = [];
+    private readonly Dictionary<string, (string? Hash, DateTime At)> _last = [];
     private DateTime _lastAt;
 
     public void Record(string action, string entityType, Guid? entityId, Guid? taskId = null, string? field = null,
         string? oldValue = null, string? newValue = null, string? details = null)
     {
         var chainKey = (taskId ?? entityId)?.ToString("N") ?? entityType;
-        if (!_lastHash.TryGetValue(chainKey, out var prev))
+        if (!_last.TryGetValue(chainKey, out var last))
         {
-            prev = db.AuditLogs.Local.Where(a => (a.TaskId ?? a.EntityId)?.ToString("N") == chainKey).OrderBy(a => a.At).LastOrDefault()?.Hash
-                ?? (taskId is { } t
-                    ? db.AuditLogs.AsNoTracking().Where(a => a.TaskId == t).OrderByDescending(a => a.At).Select(a => a.Hash).FirstOrDefault()
+            var local = db.AuditLogs.Local.Where(a => (a.TaskId ?? a.EntityId)?.ToString("N") == chainKey).OrderBy(a => a.At).LastOrDefault();
+            last = local is not null ? (local.Hash, local.At)
+                : taskId is { } t
+                    ? db.AuditLogs.AsNoTracking().Where(a => a.TaskId == t).OrderByDescending(a => a.At).Select(a => new { a.Hash, a.At }).AsEnumerable()
+                        .Select(a => ((string?)a.Hash, a.At)).FirstOrDefault()
                     : entityId is { } e
-                        ? db.AuditLogs.AsNoTracking().Where(a => a.EntityId == e && a.TaskId == null).OrderByDescending(a => a.At).Select(a => a.Hash).FirstOrDefault()
-                        : null);
+                        ? db.AuditLogs.AsNoTracking().Where(a => a.EntityId == e && a.TaskId == null).OrderByDescending(a => a.At).Select(a => new { a.Hash, a.At }).AsEnumerable()
+                            .Select(a => ((string?)a.Hash, a.At)).FirstOrDefault()
+                        : (null, default);
         }
+        var prev = last.Hash;
 
-        // Strictly increasing timestamps keep the chain order unambiguous (several entries per unit of work).
+        // Strictly increasing timestamps keep the chain order unambiguous (several entries per unit of work,
+        // or a pinned clock): never earlier than the chain's previous entry.
         var at = clock.UtcNow;
         if (at <= _lastAt) at = _lastAt.AddTicks(1);
+        if (at <= last.At) at = last.At.AddTicks(1);
         _lastAt = at;
 
         var entry = new AuditLog
@@ -52,7 +58,7 @@ public sealed class AuditService(FollowUpDbContext db, ActorContext actor, ICloc
             PrevHash = prev,
         };
         entry.Hash = ComputeHash(entry);
-        _lastHash[chainKey] = entry.Hash;
+        _last[chainKey] = (entry.Hash, entry.At);
         db.AuditLogs.Add(entry);
     }
 

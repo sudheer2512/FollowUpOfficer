@@ -80,7 +80,7 @@ public sealed class FollowUpService(
         // Downtime catch-up: coalesce all points missed since the scheduled one into this single evaluation.
         var coalesced = 0;
         if (now - scheduled > TimeSpan.FromMinutes(_o.FollowUpCatchUpGraceMinutes))
-            coalesced = FollowUpScheduler.CountPoints(task.FollowUp, scheduled, now, anchor, cal);
+            coalesced = 1 + FollowUpScheduler.CountPoints(task.FollowUp, scheduled, now, anchor, cal);   // the scheduled point + later ones
 
         var ctx = await BuildContextAsync(task, now, cal, ct);
         var decision = FollowUpDecisionEngine.Decide(ctx);
