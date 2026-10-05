@@ -1,0 +1,187 @@
+<div class="page-header">
+  <div class="titles">
+    <h2>Settings</h2>
+    <div class="subtitle">Runtime thresholds for deadlines, follow-ups, AI matching and digests. Changes apply immediately — no restart.</div>
+  </div>
+  <div class="actions">
+    @if (state().dirty) {
+      <span class="chip sm tone-warning">Unsaved changes</span>
+    }
+    <button type="button" class="btn" [disabled]="!state().dirty || saving()" (click)="reset()">Reset</button>
+    <button type="submit" form="settings-form" class="btn btn-primary" [disabled]="!canSave()">{{ saving() ? 'Saving…' : 'Save settings' }}</button>
+  </div>
+</div>
+
+@if (data.loading() && !data.value()) {
+  <div class="stack-lg">
+    <div class="card pad"><fu-skeleton [rows]="3" /></div>
+    <div class="card pad"><fu-skeleton [rows]="6" /></div>
+  </div>
+} @else if (data.error()) {
+  <div class="alert tone-danger" role="alert">
+    <fu-icon name="alert-circle" /> <span class="spacer">{{ data.error() }}</span>
+    <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+  </div>
+} @else {
+  <form [formGroup]="form" id="settings-form" class="stack-lg" (ngSubmit)="save()" novalidate>
+    <section class="card">
+      <header class="card-header"><fu-icon name="clock" class="muted" /><h2>Deadlines</h2></header>
+      <div class="setting">
+        <div class="about">
+          <label for="set-severe">Severely overdue after</label>
+          <p>Tasks this far past their due date are flagged as severely overdue and rank higher on the CEO’s attention list.</p>
+        </div>
+        <div class="control">
+          <div class="input-group">
+            <input id="set-severe" class="input num" type="number" min="1" max="365" formControlName="severelyOverdueDays" />
+            <span class="unit">days</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card-header"><fu-icon name="bell" class="muted" /><h2>Follow-up &amp; reminders</h2></header>
+      <div class="setting">
+        <div class="about">
+          <label for="set-recent">Recent update window</label>
+          <p>A task counts as “recently updated” if anyone posted progress within this window; otherwise it shows as having no recent update.</p>
+        </div>
+        <div class="control">
+          <div class="input-group">
+            <input id="set-recent" class="input num" type="number" min="1" max="720" formControlName="recentUpdateWindowHours" />
+            <span class="unit">hours</span>
+          </div>
+        </div>
+      </div>
+      <div class="setting">
+        <div class="about">
+          <label for="set-max">Reminders per person per day</label>
+          <p>A cap so nobody is flooded; extra reminders for the same person are combined into the next one.</p>
+        </div>
+        <div class="control">
+          <div class="input-group">
+            <input id="set-max" class="input num" type="number" min="1" max="100" formControlName="maxRemindersPerRecipientPerDay" />
+            <span class="unit">per day</span>
+          </div>
+        </div>
+      </div>
+      <div class="setting">
+        <div class="about">
+          <label for="set-expiry">Reminder expiry</label>
+          <p>A reminder that could not be delivered within this time is dropped rather than sent late and out of context.</p>
+        </div>
+        <div class="control">
+          <div class="input-group">
+            <input id="set-expiry" class="input num" type="number" min="1" max="720" formControlName="reminderExpiryHours" />
+            <span class="unit">hours</span>
+          </div>
+        </div>
+      </div>
+      <div class="setting">
+        <div class="about">
+          <label for="set-nonresponse">Repeated non-response after</label>
+          <p>After this many unanswered reminders the task is raised as “repeated non-response” for the CEO.</p>
+        </div>
+        <div class="control">
+          <div class="input-group">
+            <input id="set-nonresponse" class="input num" type="number" min="1" max="50" formControlName="repeatedNonResponseReminders" />
+            <span class="unit">reminders</span>
+          </div>
+        </div>
+      </div>
+      <div class="setting">
+        <div class="about">
+          <label for="set-ack">Acknowledgement required from</label>
+          <p>Assignees must explicitly accept tasks at or above this criticality before work is considered started.</p>
+        </div>
+        <div class="control">
+          <select id="set-ack" class="select" formControlName="acknowledgementFrom">
+            @for (c of criticalities; track c) {
+              <option [ngValue]="c">{{ c | humanize }} and above</option>
+            }
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card-header"><fu-icon name="sparkles" class="muted" /><h2>AI matching</h2></header>
+      <div class="setting">
+        <div class="about">
+          <label for="set-auto">Auto-attach confidence</label>
+          <p>Emails and Teams replies matched to a task with at least this confidence are linked automatically.</p>
+        </div>
+        <div class="control">
+          <div class="slider">
+            <input id="set-auto" type="range" min="0" max="100" step="1" formControlName="autoAttachPercent" />
+            <span class="pct num">{{ state().value.autoAttachPercent }}%</span>
+          </div>
+        </div>
+      </div>
+      <div class="setting">
+        <div class="about">
+          <label for="set-suggest">Suggest confidence</label>
+          <p>Matches between this and the auto-attach threshold are suggested for a human to confirm; anything lower is ignored.</p>
+        </div>
+        <div class="control">
+          <div class="slider">
+            <input id="set-suggest" type="range" min="0" max="100" step="1" formControlName="suggestPercent" />
+            <span class="pct num">{{ state().value.suggestPercent }}%</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="bands" aria-hidden="true">
+          <span class="band ignore" [style.flex-grow]="bands().ignore">Ignore</span>
+          <span class="band suggest" [style.flex-grow]="bands().suggest">Suggest</span>
+          <span class="band attach" [style.flex-grow]="bands().attach">Auto-attach</span>
+        </div>
+        @if (confidenceError()) {
+          <div class="error-text mt-8" role="alert">{{ confidenceError() }}</div>
+        }
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card-header"><fu-icon name="file" class="muted" /><h2>Digest &amp; review</h2></header>
+      <div class="setting">
+        <div class="about">
+          <span class="label">Daily digest</span>
+          <p>A morning summary for the CEO: overdue and critical work, missed commitments and what needs a decision.</p>
+        </div>
+        <div class="control row wrap">
+          <label class="switch"><input type="checkbox" formControlName="dailyDigestEnabled" aria-label="Daily digest enabled" /> {{ state().value.dailyDigestEnabled ? 'On' : 'Off' }}</label>
+          <input class="input time" type="time" formControlName="dailyDigestTime" aria-label="Daily digest time" />
+        </div>
+      </div>
+      <div class="setting">
+        <div class="about">
+          <span class="label">Weekly review</span>
+          <p>Prepare the weekly executive review (completed, slipped, at-risk work and team status) every week.</p>
+        </div>
+        <div class="control">
+          <label class="switch"><input type="checkbox" formControlName="weeklyReviewEnabled" aria-label="Weekly review enabled" /> {{ state().value.weeklyReviewEnabled ? 'On' : 'Off' }}</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card-header"><fu-icon name="plug" class="muted" /><h2>Integrations</h2></header>
+      <div class="setting">
+        <div class="about">
+          <span class="label">Calendar sync</span>
+          <p>Read Outlook calendars through Microsoft Graph so follow-ups respect leave and meetings.</p>
+        </div>
+        <div class="control">
+          <label class="switch"><input type="checkbox" formControlName="calendarSyncEnabled" aria-label="Calendar sync enabled" /> {{ state().value.calendarSyncEnabled ? 'On' : 'Off' }}</label>
+        </div>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <button type="button" class="btn" [disabled]="!state().dirty || saving()" (click)="reset()">Reset</button>
+      <button type="submit" class="btn btn-primary" [disabled]="!canSave()">{{ saving() ? 'Saving…' : 'Save settings' }}</button>
+    </div>
+  </form>
+}

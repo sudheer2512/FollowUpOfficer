@@ -1,0 +1,26 @@
+/* "Which commitments made to me have been missed?" — the spec's headline question, answered up front. */
+.callout {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; margin-bottom: 16px;
+  border-left: 3px solid var(--accent);
+}
+.callout.has-missed { border-left-color: var(--danger); }
+.callout-ic {
+  width: 36px; height: 36px; border-radius: 10px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent-text);
+}
+.callout.has-missed .callout-ic { background: var(--danger-soft); color: var(--danger); }
+.callout-main { flex: 1 1 auto; min-width: 0; }
+.q { font-weight: 600; color: var(--text); }
+.a { margin-top: 2px; color: var(--text-2); }
+@media (max-width: 700px) { .callout { flex-wrap: wrap; } }
+
+.stats { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 16px; }
+.stats .kpi { font: inherit; }
+.stats .kpi.on { border-color: var(--accent); box-shadow: var(--focus); }
+@media (max-width: 760px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.tabs-row { padding: 0 8px; }
+.filter-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.search { flex: 0 1 300px; min-width: 200px; }

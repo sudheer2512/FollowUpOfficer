@@ -1,0 +1,251 @@
+<div class="page">
+  @if (def.loading() && !def.value()) {
+    <div class="page-header">
+      <div class="titles stack">
+        <div class="skeleton" style="height: 12px; width: 120px"></div>
+        <div class="skeleton" style="height: 22px; width: 340px; max-width: 100%"></div>
+      </div>
+    </div>
+    <fu-skeleton variant="cards" [rows]="4" />
+  } @else if (def.error() && !def.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <div class="grow">Couldn't load this recurring task. {{ def.error() }}</div>
+      <a class="btn btn-sm" routerLink="/recurring">Back to list</a>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else if (view(); as v) {
+    @let d = v.d;
+    <div class="page-header">
+      <div class="titles">
+        <a routerLink="/recurring" class="back"><fu-icon name="arrow-left" [size]="14" /> Recurring tasks</a>
+        <h1 class="title-row">
+          <span>{{ d.titleTemplate }}</span>
+          <span class="badge tone-{{ v.stateTone }}">{{ d.state }}</span>
+        </h1>
+        <div class="subtitle"><span class="mono">{{ d.code }}</span> · {{ d.ruleText }} · {{ d.dueText }}</div>
+      </div>
+      <div class="actions">
+        <a class="btn" [routerLink]="['/recurring', d.id, 'edit']"><fu-icon name="edit" /> Edit</a>
+        @if (d.state === 'Active') {
+          <button type="button" class="btn" [disabled]="busy()" (click)="openPause()"><fu-icon name="pause" /> Pause</button>
+        }
+        @if (d.state === 'Paused') {
+          <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="resume()"><fu-icon name="play" /> Resume</button>
+        }
+        @if (d.state !== 'Ended') {
+          <fu-dropdown icon="more" ariaLabel="More actions" [caret]="false" buttonClass="btn btn-icon">
+            <button type="button" class="menu-item" (click)="skipNext()"><fu-icon name="skip" /> Skip next occurrence</button>
+            <div class="menu-sep"></div>
+            <button type="button" class="menu-item danger" (click)="end()"><fu-icon name="stop" /> End series</button>
+          </fu-dropdown>
+        }
+      </div>
+    </div>
+
+    @if (d.state === 'Paused') {
+      <div class="alert tone-warning mb-16" role="status">
+        <fu-icon name="pause" />
+        <div class="grow">
+          <strong>Paused.</strong>
+          {{ d.pauseReason || 'No reason given.' }}
+          @if (d.resumeOn) {
+            Resumes automatically on {{ d.resumeOn | dateOnly: 'weekday' }}.
+          } @else {
+            Resume it when ready.
+          }
+          <div class="xsmall muted mt-4">Occurrences that fall in the pause are recorded as “Paused” and not created.</div>
+        </div>
+        <button type="button" class="btn btn-sm" [disabled]="busy()" (click)="resume()">Resume now</button>
+      </div>
+    }
+    @if (d.state === 'Ended') {
+      <div class="alert mb-16" role="status">
+        <fu-icon name="stop" />
+        <div>
+          This series has ended{{ d.endDate ? ' on ' + (d.endDate | dateOnly) : '' }}. No further occurrences will be created; the history is kept below.
+        </div>
+      </div>
+    }
+
+    <div class="summary-grid">
+      <!-- Schedule -->
+      <section class="card">
+        <header class="card-header"><fu-icon name="repeat" /><h2>Schedule</h2></header>
+        <div class="card-body">
+          <dl class="kv">
+            <dt>Repeats</dt>
+            <dd>{{ d.ruleText }}</dd>
+            <dt>Due</dt>
+            <dd>{{ d.dueText }}</dd>
+            <dt>Follow-up</dt>
+            <dd>{{ d.followUpText }}</dd>
+            <dt>Holidays</dt>
+            <dd>
+              {{ d.holidayHandling | humanize }}
+              <div class="xsmall muted">{{ holidayText[d.holidayHandling] }}</div>
+            </dd>
+            <dt>After downtime</dt>
+            <dd>
+              {{ d.catchUp | humanize }}{{ d.catchUp === 'GenerateWithinWindow' ? ' (' + d.catchUpWindowDays + ' days)' : '' }}
+              <div class="xsmall muted">{{ catchUpText[d.catchUp] }}</div>
+            </dd>
+            <dt>Range</dt>
+            <dd>
+              From {{ d.startDate | dateOnly }}{{ d.endDate ? ' until ' + (d.endDate | dateOnly) : '' }}
+              @if (d.maxOccurrences) {
+                · at most {{ d.maxOccurrences }}
+              }
+              @if (d.effectiveFrom && d.effectiveFrom !== d.startDate) {
+                <div class="xsmall muted">This version applies from {{ d.effectiveFrom | dateOnly }}</div>
+              }
+            </dd>
+            <dt>Controls</dt>
+            <dd>
+              {{ d.requiresApproval ? 'Approval required' : 'No approval' }} ·
+              {{ d.requiresAcknowledgement ? 'Acknowledgement required' : 'No acknowledgement' }}
+            </dd>
+          </dl>
+        </div>
+      </section>
+
+      <!-- People -->
+      <section class="card">
+        <header class="card-header"><fu-icon name="users" /><h2>People</h2></header>
+        <div class="card-body">
+          <dl class="kv">
+            <dt>Responsible</dt>
+            <dd><fu-person [person]="d.primaryAssignee" [showTitle]="true" [emptyText]="d.team?.name ? 'Leader of ' + d.team?.name : 'Unassigned'" /></dd>
+            @if (v.additional.length) {
+              <dt>Also assigned</dt>
+              <dd class="stack gap-4">
+                @for (p of v.additional; track p.id) {
+                  <fu-person [person]="p" />
+                }
+              </dd>
+            }
+            <dt>Owner</dt>
+            <dd><fu-person [person]="d.owner" emptyText="—" /></dd>
+            <dt>Team</dt>
+            <dd>{{ d.team?.name || '—' }}</dd>
+            <dt>Department</dt>
+            <dd>{{ d.department?.name || '—' }}</dd>
+            <dt>Project</dt>
+            <dd>
+              @if (d.project; as p) {
+                <a [routerLink]="['/projects', p.id]">{{ p.name }}</a>
+              } @else {
+                —
+              }
+            </dd>
+            <dt>Priority</dt>
+            <dd class="row"><fu-priority [value]="d.priority" /><fu-criticality [value]="d.criticality" [small]="true" /></dd>
+            <dt>Visibility</dt>
+            <dd>{{ d.visibility | humanize }}</dd>
+          </dl>
+        </div>
+      </section>
+
+      <!-- Compliance -->
+      <section class="card">
+        <header class="card-header"><fu-icon name="target" /><h2>Compliance</h2></header>
+        <div class="card-body stack">
+          <div class="comp-head">
+            <span class="comp-value" [class]="'comp-value text-' + (v.hasHistory ? v.complianceTone : 'muted')">{{ v.hasHistory ? v.compliance + '%' : '–' }}</span>
+            <span class="small muted">{{ v.hasHistory ? 'of occurrences completed on time' : 'No occurrences generated yet' }}</span>
+          </div>
+          <div class="progress {{ v.complianceTone }}" role="meter" aria-label="Compliance" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="v.compliance">
+            <span [style.width.%]="v.hasHistory ? v.bar : 0"></span>
+          </div>
+          <div class="stat-grid mt-8">
+            <div class="stat"><span class="stat-v">{{ v.stats.generated }}</span><span class="stat-l">Generated</span></div>
+            <div class="stat"><span class="stat-v text-good">{{ v.stats.onTime }}</span><span class="stat-l">On time</span></div>
+            <div class="stat"><span class="stat-v" [class.text-warning]="v.stats.late > 0">{{ v.stats.late }}</span><span class="stat-l">Late</span></div>
+            <div class="stat"><span class="stat-v" [class.text-danger]="v.stats.missed > 0">{{ v.stats.missed }}</span><span class="stat-l">Missed</span></div>
+            <div class="stat"><span class="stat-v">{{ v.stats.open }}</span><span class="stat-l">Open now</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Next occurrences -->
+      <section class="card">
+        <header class="card-header"><fu-icon name="calendar" /><h2>Next occurrences</h2></header>
+        <div class="card-body">
+          @if (d.state === 'Ended') {
+            <fu-empty icon="stop" [compact]="true" title="No upcoming occurrences" message="The series has ended." />
+          } @else {
+            @if (d.state === 'Paused') {
+              <p class="hint mb-8">While paused these are recorded as “Paused”{{ d.resumeOn ? ' until ' + (d.resumeOn | dateOnly) : '' }}.</p>
+            }
+            <fu-recurrence-preview [request]="nextRequest()" />
+          }
+        </div>
+      </section>
+    </div>
+
+    @if (v.checklist.length) {
+      <section class="card mt-16">
+        <header class="card-header"><fu-icon name="check-square" /><h2>Checklist</h2><span class="desc">created as subtasks with every occurrence</span></header>
+        <div class="card-body">
+          <ol class="checklist">
+            @for (item of v.checklist; track $index) {
+              <li>{{ item }}</li>
+            }
+          </ol>
+        </div>
+      </section>
+    }
+
+    <section class="card mt-16">
+      <header class="card-header toolbar">
+        <fu-icon name="list" />
+        <h2>Occurrence history</h2>
+        <span class="desc">{{ (instances.value() ?? []).length }} recorded</span>
+        <span class="spacer"></span>
+        <select class="select input-sm auto-w" aria-label="Filter by outcome" (change)="outcomeFilter.set($any($event.target).value)">
+          <option value="" [selected]="outcomeFilter() === ''">All outcomes</option>
+          @for (o of outcomes; track o) {
+            <option [value]="o" [selected]="outcomeFilter() === o">{{ o | humanize }} ({{ outcomeCounts()[o] ?? 0 }})</option>
+          }
+        </select>
+      </header>
+      @if (instances.error() && !instances.value()) {
+        <div class="card-body">
+          <div class="alert tone-danger" role="alert">
+            <fu-icon name="alert-circle" />
+            <div class="grow">Couldn't load the history. {{ instances.error() }}</div>
+            <button type="button" class="btn btn-sm" (click)="loadInstances()">Retry</button>
+          </div>
+        </div>
+      } @else {
+        <fu-occurrence-history
+          [instances]="filteredInstances()"
+          [loading]="instances.loading()"
+          [emptyTitle]="outcomeFilter() ? 'No occurrences with this outcome' : 'No occurrences yet'"
+          [emptyMessage]="outcomeFilter() ? '' : 'Occurrences appear here as they are created, skipped or missed.'"
+        />
+      }
+    </section>
+  }
+</div>
+
+@if (pauseOpen()) {
+  <fu-modal title="Pause recurring task" size="sm" (closed)="pauseOpen.set(false)">
+    <form id="rd-pause-form" class="stack" [formGroup]="pauseForm" (ngSubmit)="confirmPause()" novalidate>
+      <p class="small muted pause-note">While paused no tasks are created; occurrences that fall in the pause are recorded as “Paused”.</p>
+      <div class="field">
+        <label for="rd-pause-reason">Reason</label>
+        <textarea id="rd-pause-reason" class="textarea" rows="3" formControlName="reason" placeholder="e.g. Audit postponed by the client"></textarea>
+      </div>
+      <div class="field">
+        <label for="rd-pause-resume">Resume automatically on</label>
+        <fu-date-input inputId="rd-pause-resume" formControlName="resumeOn" [min]="tomorrow" />
+        <span class="hint">Leave empty to resume manually.</span>
+      </div>
+    </form>
+    <ng-container modal-footer>
+      <button type="button" class="btn" (click)="pauseOpen.set(false)">Cancel</button>
+      <button type="submit" form="rd-pause-form" class="btn btn-primary" [disabled]="busy()"><fu-icon name="pause" /> {{ busy() ? 'Pausing…' : 'Pause' }}</button>
+    </ng-container>
+  </fu-modal>
+}

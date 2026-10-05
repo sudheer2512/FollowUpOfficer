@@ -1,0 +1,105 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>{{ greeting() }}</h1>
+      <div class="subtitle">
+        {{ today }}
+        @if (wb.value()?.generatedAt; as at) {
+          · updated {{ at | ago }}
+        }
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh workbench" title="Refresh" [disabled]="wb.loading()" (click)="reload()">
+        <fu-icon name="refresh" />
+      </button>
+      <a class="btn" routerLink="/review"><fu-icon name="file" /> Daily digest</a>
+      <a class="btn" routerLink="/ask"><fu-icon name="sparkles" /> Ask</a>
+    </div>
+  </div>
+
+  @if (wb.loading() && !wb.value()) {
+    <div class="top">
+      <section class="card card-body"><fu-skeleton [rows]="6" /></section>
+      <fu-skeleton variant="tiles" [rows]="12" />
+    </div>
+    <div class="mt-16"><fu-skeleton variant="cards" [rows]="4" /></div>
+  } @else if (wb.error() && !wb.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <div class="spacer">{{ wb.error() }}</div>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else if (wb.value()) {
+    <div class="top" [class.single]="!summary()">
+      @if (summary(); as s) {
+        <section class="card summary" aria-labelledby="wb-summary-title">
+          <header class="card-header">
+            <fu-icon name="sparkles" class="text-accent" />
+            <h2 id="wb-summary-title">Executive summary</h2>
+          </header>
+          <div class="card-body">
+            @if (s.headline) {
+              <p class="headline">{{ s.headline }}</p>
+            }
+            @if (s.narrative) {
+              <p class="narrative">{{ s.narrative }}</p>
+            }
+            @if (points().length) {
+              <ul class="points">
+                @for (p of points(); track $index) {
+                  <li>
+                    @if (p.link; as d) {
+                      <a class="point" [routerLink]="d.route" [queryParams]="d.query">
+                        <span class="dot tone-{{ p.tone }}"></span>
+                        <span class="text">{{ p.text }}</span>
+                        @if (p.count !== null) {
+                          <span class="chip sm tone-{{ p.tone }} num">{{ p.count }}</span>
+                        }
+                        <fu-icon name="chevron-right" [size]="14" class="go" />
+                      </a>
+                    } @else {
+                      <div class="point">
+                        <span class="dot tone-{{ p.tone }}"></span>
+                        <span class="text">{{ p.text }}</span>
+                        @if (p.count !== null) {
+                          <span class="chip sm tone-{{ p.tone }} num">{{ p.count }}</span>
+                        }
+                      </div>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else if (!s.headline && !s.narrative) {
+              <p class="muted small">No summary yet — it appears once tasks are being followed up.</p>
+            }
+          </div>
+          <footer class="card-footer xsmall muted">
+            <span class="chip sm tone-accent">AI: {{ s.provider || 'Heuristic' }}</span>
+            @if (s.generatedAt) {
+              <span>generated {{ s.generatedAt | ago }}</span>
+            }
+          </footer>
+        </section>
+      }
+
+      <div class="kpi-grid" aria-label="Key indicators">
+        @for (t of tiles(); track t.key) {
+          <fu-tile [tile]="t" />
+        }
+      </div>
+    </div>
+
+    @if (lead(); as section) {
+      <fu-section-card class="lead" [section]="section" [limit]="6" (changed)="reload(true)" />
+    }
+
+    @if (rest().length) {
+      <div class="grid-2 sections">
+        @for (section of rest(); track section.key) {
+          <fu-section-card [section]="section" [limit]="6" (changed)="reload(true)" />
+        }
+      </div>
+    }
+  }
+</div>

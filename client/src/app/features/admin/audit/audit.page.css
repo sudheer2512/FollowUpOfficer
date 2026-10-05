@@ -1,0 +1,16 @@
+.filters { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(130px, 1fr)) auto; gap: 12px; align-items: end; padding: 14px 16px; }
+.buttons { display: flex; gap: 6px; }
+.task-search { position: relative; }
+.results { left: 0; right: 0; top: calc(100% + 4px); list-style: none; margin: 0; max-height: 300px; overflow-y: auto; }
+.results .menu-item { gap: 8px; }
+.picked { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 4px 0 10px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-text); min-width: 0; }
+.picked .truncate { flex: 1; }
+.change { display: flex; align-items: center; gap: 6px; max-width: 340px; }
+.change .old { color: var(--muted); text-decoration: line-through; max-width: 150px; }
+.change .new { max-width: 150px; }
+.arrow { color: var(--subtle); }
+.details { min-width: 160px; max-width: 320px; }
+tr.broken td { background: var(--danger-soft); }
+tr.broken td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+@media (max-width: 1100px) { .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .task-field { grid-column: 1 / -1; } }
+@media (max-width: 600px) { .filters { grid-template-columns: minmax(0, 1fr); } }

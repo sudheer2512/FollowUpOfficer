@@ -21,26 +21,7 @@ let echartsPromise: Promise<EChartsCore> | null = null;
  * download it.
  */
 function loadECharts(): Promise<EChartsCore> {
-  echartsPromise ??= Promise.all([
-    import('echarts/core'),
-    import('echarts/charts'),
-    import('echarts/components'),
-    import('echarts/renderers'),
-  ]).then(([core, charts, components, renderers]) => {
-    core.use([
-      charts.LineChart,
-      charts.BarChart,
-      charts.PieChart,
-      components.GridComponent,
-      components.TooltipComponent,
-      components.LegendComponent,
-      components.TitleComponent,
-      components.DatasetComponent,
-      components.MarkLineComponent,
-      renderers.CanvasRenderer,
-    ]);
-    return core;
-  });
+  echartsPromise ??= import('./echarts-setup').then((m) => m.echarts);
   return echartsPromise;
 }
 
@@ -118,11 +99,26 @@ export class ChartComponent implements OnDestroy {
       animationDuration: 300,
     };
     const opts = this.options() as Record<string, unknown>;
-    const axisStyle = { axisLine: { lineStyle: { color: p.border } }, axisLabel: { color: p.muted }, splitLine: { lineStyle: { color: p.border } } };
-    const withAxis = (axis: unknown) =>
-      Array.isArray(axis) ? axis.map((a) => ({ ...axisStyle, ...(a as object) })) : axis ? { ...axisStyle, ...(axis as object) } : axis;
+    type Obj = Record<string, unknown>;
+    const obj = (v: unknown): Obj => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Obj) : {});
+    // Theme styling is merged one level deep so a chart can override e.g. axisLabel.formatter without losing colours.
+    const styleAxis = (a: unknown): Obj => {
+      const ax = obj(a);
+      return {
+        ...ax,
+        axisLine: { ...obj(ax['axisLine']), lineStyle: { color: p.border, ...obj(obj(ax['axisLine'])['lineStyle']) } },
+        axisLabel: { color: p.muted, ...obj(ax['axisLabel']) },
+        splitLine: { ...obj(ax['splitLine']), lineStyle: { color: p.border, ...obj(obj(ax['splitLine'])['lineStyle']) } },
+      };
+    };
+    const withAxis = (axis: unknown) => (Array.isArray(axis) ? axis.map(styleAxis) : axis ? styleAxis(axis) : axis);
+    const baseLegend = obj(base['legend' as keyof EChartsCoreOption]);
+    const legend =
+      opts['legend'] && typeof opts['legend'] === 'object' && !Array.isArray(opts['legend'])
+        ? { ...baseLegend, ...obj(opts['legend']), textStyle: { ...obj(baseLegend['textStyle']), ...obj(obj(opts['legend'])['textStyle']) } }
+        : (opts['legend'] ?? baseLegend);
     this.chart.setOption(
-      { ...base, ...opts, xAxis: withAxis(opts['xAxis']), yAxis: withAxis(opts['yAxis']) } as EChartsCoreOption,
+      { ...base, ...opts, legend, xAxis: withAxis(opts['xAxis']), yAxis: withAxis(opts['yAxis']) } as EChartsCoreOption,
       { notMerge: true },
     );
   }

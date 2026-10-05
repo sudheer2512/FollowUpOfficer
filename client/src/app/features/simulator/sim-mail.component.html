@@ -1,0 +1,97 @@
+<div class="toolbar">
+  <div class="field inline">
+    <label for="sim-mailbox">Mailbox</label>
+    <select id="sim-mailbox" class="select" (change)="setMailbox($event)">
+      @for (u of mailboxes(); track u.id) {
+        <option [value]="address(u)" [selected]="address(u) === mailbox()">{{ label(u) }}</option>
+      } @empty {
+        <option value="">No mailboxes</option>
+      }
+    </select>
+  </div>
+  <div class="segmented" role="group" aria-label="Folder">
+    <button type="button" [class.active]="folder() === 'inbox'" [attr.aria-pressed]="folder() === 'inbox'" (click)="folder.set('inbox')">
+      Inbox
+    </button>
+    <button type="button" [class.active]="folder() === 'sentitems'" [attr.aria-pressed]="folder() === 'sentitems'" (click)="folder.set('sentitems')">
+      Sent items
+    </button>
+  </div>
+  <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Refresh mailbox" (click)="refresh()"><fu-icon name="refresh" /></button>
+  <span class="spacer"></span>
+  <button type="button" class="btn btn-primary btn-sm" [disabled]="!mailboxes().length" (click)="compose()"><fu-icon name="edit" /> Compose</button>
+</div>
+
+<div class="panes">
+  <section class="card list-pane" aria-label="Messages">
+    @if (messages.loading() && !messages.value()) {
+      <fu-skeleton variant="table" [rows]="6" />
+    } @else if (messages.error()) {
+      <div class="card-body">
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" /> <span class="spacer">{{ messages.error() }}</span>
+          <button type="button" class="btn btn-sm" (click)="refresh()">Retry</button>
+        </div>
+      </div>
+    } @else {
+      <div class="list">
+        @for (m of rows(); track m.id) {
+          <button type="button" class="list-row item" [class.on]="m.id === selectedId()" [attr.aria-current]="m.id === selectedId() ? 'true' : null" (click)="selectedId.set(m.id)">
+            <span class="main">
+              <span class="row">
+                <span class="title truncate">{{ counterpart(m) }}</span>
+                <span class="spacer"></span>
+                <span class="xsmall muted nowrap">{{ (m.receivedDateTime ?? m.sentDateTime) | ago }}</span>
+              </span>
+              <span class="subject truncate">{{ m.subject || '(no subject)' }}</span>
+              <span class="preview clamp-2">{{ m.bodyPreview }}</span>
+            </span>
+          </button>
+        } @empty {
+          <fu-empty icon="mail" [title]="folder() === 'inbox' ? 'Inbox is empty' : 'Nothing sent yet'" message="Compose a message as any user to start a thread." [compact]="true" />
+        }
+      </div>
+    }
+  </section>
+
+  <section class="card read-pane" aria-label="Message">
+    @if (selected(); as m) {
+      <header class="card-header wrap">
+        <h2 class="truncate">{{ m.subject || '(no subject)' }}</h2>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-sm" (click)="reply(false)"><fu-icon name="corner-up-right" /> Reply</button>
+        <button type="button" class="btn btn-sm" (click)="reply(true)">Reply all</button>
+      </header>
+      <div class="card-body">
+        <dl class="kv headers">
+          <dt>From</dt>
+          <dd>{{ fullAddress(m.from) || '—' }}</dd>
+          <dt>To</dt>
+          <dd>{{ recipientsText(m.toRecipients) || '—' }}</dd>
+          @if (m.ccRecipients.length) {
+            <dt>Cc</dt>
+            <dd>{{ recipientsText(m.ccRecipients) }}</dd>
+          }
+          <dt>Date</dt>
+          <dd>{{ (m.receivedDateTime ?? m.sentDateTime) | dateTime }}</dd>
+          @if (m.conversationId) {
+            <dt>Conversation</dt>
+            <dd class="mono xsmall truncate" [attr.title]="m.conversationId">{{ m.conversationId }}</dd>
+          }
+          @if (m.inReplyTo) {
+            <dt>In reply to</dt>
+            <dd class="mono xsmall truncate" [attr.title]="m.inReplyTo">{{ m.inReplyTo }}</dd>
+          }
+        </dl>
+        <hr />
+        <div class="pre message-body">{{ m.body || m.bodyPreview || '(empty message)' }}</div>
+      </div>
+    } @else {
+      <fu-empty icon="mail" title="No message selected" message="Pick a message to read it, then reply to continue the thread." />
+    }
+  </section>
+</div>
+
+@if (draft(); as d) {
+  <fu-sim-compose-modal [draft]="d" [users]="users()" (sent)="onSent()" (closed)="draft.set(null)" />
+}

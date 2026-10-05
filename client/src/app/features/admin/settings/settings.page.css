@@ -1,0 +1,19 @@
+:host { display: block; max-width: 980px; }
+.card-header fu-icon { flex: none; }
+.setting { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 8px 24px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.setting:last-child { border-bottom: 0; }
+.about label, .about .label { font-weight: 600; font-size: 13.5px; color: var(--text); }
+.about p { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+.control { min-width: 0; }
+.control .num { width: 100px; text-align: right; }
+.unit { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.time { width: 120px; }
+.slider { display: flex; align-items: center; gap: 10px; }
+.slider input[type='range'] { flex: 1; accent-color: var(--accent); }
+.pct { width: 44px; text-align: right; font-weight: 600; }
+.bands { display: flex; height: 22px; border-radius: 6px; overflow: hidden; font-size: 11px; font-weight: 600; }
+.band { display: flex; align-items: center; justify-content: center; flex-basis: 0; min-width: 0; overflow: hidden; white-space: nowrap; }
+.band.ignore { background: var(--neutral-soft); color: var(--neutral); }
+.band.suggest { background: var(--warning-soft); color: var(--warning); }
+.band.attach { background: var(--good-soft); color: var(--good); }
+@media (max-width: 700px) { .setting { grid-template-columns: minmax(0, 1fr); } }

@@ -1,0 +1,16 @@
+.week-picker { display: inline-flex; align-items: center; gap: 4px; }
+.week-picker .input { width: 150px; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+.main-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.side-col { min-width: 0; }
+
+.summary .headline { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; line-height: 1.4; }
+.summary .narrative { color: var(--text-2); line-height: 1.55; margin-bottom: 12px; }
+
+.lines { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--text-2); }
+.part + .part, .card-body + .part { border-top: 1px solid var(--border); }
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}

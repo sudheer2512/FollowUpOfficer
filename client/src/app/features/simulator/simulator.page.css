@@ -1,0 +1,8 @@
+.intro { background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 70%, var(--surface)), var(--surface) 65%); }
+.intro-body { display: flex; gap: 16px; align-items: flex-start; }
+.intro-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: var(--on-accent); display: flex; align-items: center; justify-content: center; flex: none; }
+.intro-text { min-width: 0; }
+.intro-text h2 { font-size: 15px; margin-bottom: 4px; }
+.intro-text p { color: var(--text-2); margin: 0 0 8px; }
+.steps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; color: var(--text-2); font-size: 13px; }
+@media (max-width: 600px) { .intro-icon { display: none; } }

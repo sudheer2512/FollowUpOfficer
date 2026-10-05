@@ -1,0 +1,257 @@
+<div class="page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/meetings">Meetings</a>
+    <fu-icon name="chevron-right" [size]="12" />
+    <span class="truncate">{{ isNew() ? 'New meeting' : (meeting()?.title ?? 'Meeting') }}</span>
+  </nav>
+
+  @if (!isNew() && data.loading() && !data.value()) {
+    <div class="stack-lg">
+      <fu-skeleton [rows]="2" />
+      <fu-skeleton variant="table" [rows]="6" />
+    </div>
+  } @else if (!isNew() && data.error() && !data.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <span class="spacer">{{ data.error() }}</span>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else {
+    <div class="page-header">
+      <div class="titles">
+        <h1>{{ isNew() ? 'New meeting' : (meeting()?.title || 'Meeting') }}</h1>
+        <div class="subtitle">
+          @if (meeting(); as m) {
+            Held {{ m.heldAt | dateTime }}
+            @if (m.organizer?.name) {
+              · organised by {{ m.organizer?.name }}
+            }
+            · {{ counts().total }} action item{{ counts().total === 1 ? '' : 's' }} ({{ counts().open }} open, {{ counts().withTask }} with tasks)
+          } @else {
+            Record decisions and action items, then turn them into tracked tasks.
+          }
+        </div>
+      </div>
+      <div class="actions">
+        @if (dirty()) {
+          <span class="chip sm tone-warning">Unsaved changes</span>
+        }
+        <a class="btn" routerLink="/meetings">Back</a>
+        <button type="submit" form="fu-meeting-form" class="btn btn-primary" [disabled]="saving()">
+          <fu-icon name="check" [size]="15" /> {{ saving() ? 'Saving…' : isNew() ? 'Create meeting' : 'Save' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <form id="fu-meeting-form" class="stack-lg" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <section class="card">
+          <header class="card-header"><h2>Details</h2></header>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="field full">
+                <label for="mt-title" class="req">Title</label>
+                <input id="mt-title" class="input" formControlName="title" maxlength="300" placeholder="e.g. UAE e-Invoicing steering committee" />
+                @if (submitted() && form.controls.title.invalid) {
+                  <span class="error">A title is required.</span>
+                }
+              </div>
+              <div class="field">
+                <label for="mt-held" class="req">Held at</label>
+                <input id="mt-held" class="input" type="datetime-local" formControlName="heldAt" />
+                @if (submitted() && form.controls.heldAt.invalid) {
+                  <span class="error">When was the meeting held?</span>
+                }
+              </div>
+              <div class="field">
+                <label for="mt-loc">Location</label>
+                <input id="mt-loc" class="input" formControlName="location" placeholder="Boardroom, Teams…" />
+              </div>
+              <div class="field">
+                <label for="mt-org">Organizer</label>
+                <fu-person-picker formControlName="organizerId" inputId="mt-org" placeholder="Who ran the meeting…" />
+              </div>
+              <div class="field">
+                <label for="mt-proj">Project</label>
+                <fu-lookup-select kind="project" formControlName="projectId" selectId="mt-proj" emptyLabel="No project" />
+              </div>
+              <div class="field full">
+                <label for="mt-part">Participants</label>
+                <fu-person-picker formControlName="participantIds" [multiple]="true" inputId="mt-part" placeholder="Add participants…" />
+              </div>
+              <div class="field full">
+                <label for="mt-notes">Notes</label>
+                <textarea id="mt-notes" class="textarea" rows="4" formControlName="notes" placeholder="Discussion points, context, minutes…"></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <header class="card-header">
+            <h2>Decisions &amp; action items</h2>
+            <span class="count-pill">{{ rows().length }}</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-sm" (click)="addRow()"><fu-icon name="plus" [size]="14" /> Add item</button>
+          </header>
+          <div class="rows" formArrayName="actionItems">
+            @for (row of rows(); track row; let i = $index) {
+              <div class="ai-row" [formGroupName]="i">
+                <span class="ai-num" aria-hidden="true">{{ i + 1 }}</span>
+                <div class="ai-body">
+                  <div class="ai-line">
+                    <div class="field">
+                      <label [for]="'mt-dec-' + i">Decision</label>
+                      <input class="input" [id]="'mt-dec-' + i" formControlName="decision" placeholder="What was decided (optional)" />
+                    </div>
+                    <div class="field">
+                      <label class="req" [for]="'mt-act-' + i">Action</label>
+                      <input class="input" [id]="'mt-act-' + i" formControlName="actionText" placeholder="What needs to be done" />
+                      @if (submitted() && row.controls.actionText.invalid) {
+                        <span class="error">Describe the action, or remove the row.</span>
+                      }
+                    </div>
+                  </div>
+                  <div class="ai-line ai-line-3">
+                    <div class="field">
+                      <label [for]="'mt-own-' + i">Owner</label>
+                      <fu-person-picker formControlName="ownerId" [inputId]="'mt-own-' + i" placeholder="Owner…" />
+                    </div>
+                    <div class="field">
+                      <label [for]="'mt-due-' + i">Due</label>
+                      <fu-date-input formControlName="dueDate" [inputId]="'mt-due-' + i" />
+                    </div>
+                    <div class="field">
+                      <label [for]="'mt-crit-' + i">Criticality</label>
+                      <select class="select" [id]="'mt-crit-' + i" formControlName="criticality">
+                        @for (c of criticalities; track c) {
+                          <option [value]="c">{{ c | humanize }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                  @if (existing(row); as item) {
+                    <div class="ai-task">
+                      @if (item.taskId) {
+                        <fu-icon name="link" [size]="13" />
+                        Task
+                        <a [routerLink]="['/tasks', item.taskId]" class="task-number">{{ item.taskNumber ?? 'Open task' }}</a>
+                        @if (item.taskStatus) {
+                          <fu-status [status]="item.taskStatus" />
+                        }
+                      } @else {
+                        <span class="badge tone-{{ statusTone(item) }}">{{ item.status | humanize }}</span>
+                        <span>No task yet</span>
+                      }
+                    </div>
+                  }
+                </div>
+                <button type="button" class="btn btn-ghost btn-icon btn-sm ai-remove" [attr.aria-label]="'Remove action item ' + (i + 1)" title="Remove" (click)="removeRow(i)">
+                  <fu-icon name="trash" [size]="15" />
+                </button>
+              </div>
+            } @empty {
+              <fu-empty icon="list" title="No action items" message="Add the decisions taken and who will do what by when." [compact]="true">
+                <button type="button" class="btn btn-sm mt-8" (click)="addRow()"><fu-icon name="plus" [size]="14" /> Add item</button>
+              </fu-empty>
+            }
+          </div>
+          @if (rows().length) {
+            <div class="card-footer">
+              <button type="button" class="btn btn-sm btn-ghost" (click)="addRow()"><fu-icon name="plus" [size]="14" /> Add another item</button>
+            </div>
+          }
+        </section>
+      </form>
+
+      <aside class="side stack-lg">
+        @if (created().length) {
+          <section class="card created" aria-live="polite">
+            <header class="card-header">
+              <fu-icon name="check-circle" class="text-good" />
+              <h2>{{ created().length }} task{{ created().length === 1 ? '' : 's' }} created</h2>
+              <span class="spacer"></span>
+              <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Dismiss" (click)="created.set([])"><fu-icon name="x" [size]="14" /></button>
+            </header>
+            <div class="list">
+              @for (a of created(); track a.id) {
+                <a class="list-row" [routerLink]="['/tasks', a.taskId]">
+                  <div class="main">
+                    <div class="row gap-4">
+                      <span class="task-number">{{ a.taskNumber }}</span>
+                      <span class="title truncate">{{ a.actionText }}</span>
+                    </div>
+                    <div class="meta">
+                      <span>{{ a.owner?.name ?? 'Unassigned' }}</span>
+                      @if (a.dueDate) {
+                        <span>Due {{ a.dueDate | dateOnly: 'short' }}</span>
+                      }
+                    </div>
+                  </div>
+                  @if (a.taskStatus) {
+                    <fu-status [status]="a.taskStatus" />
+                  }
+                </a>
+              }
+            </div>
+          </section>
+        }
+
+        <section class="card">
+          <header class="card-header"><h2>Create tasks from action items</h2></header>
+          <div class="card-body stack">
+            @if (isNew()) {
+              <p class="small muted">Save the meeting first. Its open action items can then be delegated as tasks in one step.</p>
+            } @else if (!candidates().length) {
+              <fu-empty icon="check-circle" title="Nothing left to create" message="Every open action item already has a task." [compact]="true" />
+            } @else {
+              <div class="row small">
+                <label class="check">
+                  <input type="checkbox" [checked]="allSelected()" [indeterminate]="someSelected()" (change)="toggleAll($any($event.target).checked)" />
+                  Select all
+                </label>
+                <span class="spacer"></span>
+                <span class="muted num">{{ selected().size }} of {{ candidates().length }}</span>
+              </div>
+              <ul class="cand-list">
+                @for (a of candidates(); track a.id) {
+                  <li>
+                    <label class="check">
+                      <input type="checkbox" [checked]="selected().has(a.id)" (change)="toggle(a.id, $any($event.target).checked)" />
+                      <span class="cand-text">
+                        <span>{{ a.actionText }}</span>
+                        <span class="xsmall muted">
+                          {{ a.owner?.name ?? 'No owner' }}
+                          @if (a.dueDate) {
+                            · due {{ a.dueDate | dateOnly: 'short' }}
+                          }
+                          @if (a.criticality !== 'Normal') {
+                            · {{ a.criticality | humanize }}
+                          }
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                }
+              </ul>
+              <div class="field">
+                <span class="label">Follow-up for the new tasks</span>
+                <fu-follow-up-picker [formControl]="followUp" [showUntil]="false" />
+              </div>
+              @if (unownedSelected() > 0) {
+                <div class="alert tone-info small"><fu-icon name="info" [size]="15" /> {{ unownedSelected() }} selected item{{ unownedSelected() === 1 ? ' has' : 's have' }} no owner; the server decides who receives {{ unownedSelected() === 1 ? 'it' : 'them' }}.</div>
+              }
+              @if (dirty()) {
+                <div class="alert tone-warning small"><fu-icon name="alert-triangle" [size]="15" /> You have unsaved changes. They will be saved before the tasks are created.</div>
+              }
+              <button type="button" class="btn btn-primary btn-block" [disabled]="!selected().size || creating() || saving()" (click)="createTasks()">
+                <fu-icon name="send" [size]="15" />
+                {{ creating() ? 'Creating…' : 'Create ' + selected().size + ' task' + (selected().size === 1 ? '' : 's') }}
+              </button>
+            }
+          </div>
+        </section>
+      </aside>
+    </div>
+  }
+</div>

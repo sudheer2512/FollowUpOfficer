@@ -101,7 +101,7 @@ const SORTABLE: Partial<Record<TaskColumn, string>> = {
                             <span class="chip sm tone-danger" [attr.title]="t.blockedReason ?? 'Blocked'">Blocked</span>
                           }
                         </div>
-                        @if (!compact() && (t.parentNumber || t.tags.length || t.projectName)) {
+                        @if (!compact() && (t.parentNumber || tagsOf(t).length || t.projectName)) {
                           <div class="sub">
                             @if (t.parentNumber) {
                               <span>↳ {{ t.parentNumber }}</span>
@@ -109,7 +109,7 @@ const SORTABLE: Partial<Record<TaskColumn, string>> = {
                             @if (t.projectName) {
                               <span>{{ t.projectName }}</span>
                             }
-                            @for (tag of t.tags; track tag) {
+                            @for (tag of tagsOf(t); track tag) {
                               <span class="tag">#{{ tag }}</span>
                             }
                           </div>
@@ -214,6 +214,11 @@ export class TaskTableComponent {
     progress: 'Progress',
     updated: 'Last update',
   };
+
+  /** Defensive: older payloads may omit tags. */
+  protected tagsOf(t: TaskListItem): string[] {
+    return (t.tags as string[] | null | undefined) ?? [];
+  }
 
   protected isSortable(c: TaskColumn): boolean {
     return !!SORTABLE[c];

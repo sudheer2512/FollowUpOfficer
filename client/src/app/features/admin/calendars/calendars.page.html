@@ -1,0 +1,214 @@
+<div class="page-header">
+  <div class="titles">
+    <h2>Calendars &amp; holidays</h2>
+    <div class="subtitle">Working days, hours and holidays drive due dates, follow-up schedules and “working days overdue”.</div>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh calendars" (click)="reload()"><fu-icon name="refresh" /></button>
+    <button type="button" class="btn btn-primary" (click)="openNew()"><fu-icon name="plus" /> New calendar</button>
+  </div>
+</div>
+
+@if (data.loading() && !data.value()) {
+  <div class="layout">
+    <div class="card pad"><fu-skeleton [rows]="4" /></div>
+    <div class="card pad"><fu-skeleton [rows]="8" /></div>
+  </div>
+} @else if (data.error()) {
+  <div class="alert tone-danger" role="alert">
+    <fu-icon name="alert-circle" /> <span class="spacer">{{ data.error() }}</span>
+    <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+  </div>
+} @else {
+  <div class="layout">
+    <section class="card list-card" aria-label="Calendars">
+      <header class="card-header">
+        <h2>Calendars</h2>
+        <span class="count-pill">{{ calendars().length }}</span>
+      </header>
+      <div class="list">
+        @for (c of calendars(); track c.id) {
+          <button type="button" class="list-row" [class.on]="selectedId() === c.id" [attr.aria-current]="selectedId() === c.id ? 'true' : null" (click)="select(c)">
+            <fu-icon name="calendar" class="muted" />
+            <span class="main">
+              <span class="title truncate">{{ c.name }}</span>
+              <span class="meta">
+                @if (c.region) {
+                  <span>{{ c.region }}</span>
+                }
+                <span class="mono">{{ c.timeZoneId }}</span>
+                <span>{{ c.holidays.length }} holidays</span>
+              </span>
+            </span>
+            @if (c.isDefault) {
+              <span class="badge tone-accent">Default</span>
+            }
+          </button>
+        } @empty {
+          @if (selectedId() !== 'new') {
+            <fu-empty icon="calendar" title="No calendars yet" message="Create the organisation’s working calendar." [compact]="true" />
+          }
+        }
+        @if (selectedId() === 'new') {
+          <div class="list-row on">
+            <fu-icon name="plus" class="muted" />
+            <span class="main"><span class="title">New calendar</span><span class="meta">Not saved yet</span></span>
+          </div>
+        }
+      </div>
+    </section>
+
+    <div class="stack-lg editor">
+      @if (selectedId()) {
+        <section class="card">
+          <header class="card-header">
+            <h2 class="truncate">{{ selected()?.name || 'New calendar' }}</h2>
+            @if (selected()?.isDefault) {
+              <span class="badge tone-accent">Default</span>
+            }
+            @if (state().dirty) {
+              <span class="chip sm tone-warning">Unsaved changes</span>
+            }
+          </header>
+          <form [formGroup]="form" class="card-body form-grid" id="calendar-form" (ngSubmit)="save()" novalidate>
+            <div class="field">
+              <label for="cal-name" class="req">Name</label>
+              <input id="cal-name" class="input" formControlName="name" maxlength="120" placeholder="India head office" />
+              @if (form.controls.name.touched && form.controls.name.invalid) {
+                <span class="error">A name is required.</span>
+              }
+            </div>
+            <div class="field">
+              <label for="cal-region">Region</label>
+              <input id="cal-region" class="input" formControlName="region" placeholder="Maharashtra" />
+            </div>
+            <div class="field full">
+              <label for="cal-tz" class="req">Time zone</label>
+              <input id="cal-tz" class="input mono" formControlName="timeZoneId" list="cal-tz-options" autocomplete="off" />
+              <datalist id="cal-tz-options">
+                @for (tz of timeZones; track tz) {
+                  <option [value]="tz"></option>
+                }
+              </datalist>
+              <span class="hint">IANA time zone id. Deadlines, reminders and the daily digest are scheduled in this zone.</span>
+            </div>
+            <fieldset class="fieldset full">
+              <legend>Weekend days</legend>
+              <div class="checks">
+                @for (d of days; track d) {
+                  <label class="check">
+                    <input type="checkbox" [checked]="isWeekend(d)" (change)="toggleDay(d, $event)" />
+                    {{ d }}
+                  </label>
+                }
+              </div>
+            </fieldset>
+            <div class="field">
+              <label for="cal-start" class="req">Working day starts</label>
+              <input id="cal-start" class="input" type="time" formControlName="workdayStart" />
+            </div>
+            <div class="field">
+              <label for="cal-end" class="req">Working day ends</label>
+              <input id="cal-end" class="input" type="time" formControlName="workdayEnd" />
+            </div>
+            @if (scheduleError()) {
+              <div class="full error-text" role="alert">{{ scheduleError() }}</div>
+            } @else if (workingHours()) {
+              <div class="full hint">{{ workingHours() }} · weekend: {{ state().value.weekendDays.length ? state().value.weekendDays.join(', ') : 'none' }}</div>
+            }
+            <div class="field full">
+              <label class="switch"><input type="checkbox" formControlName="isDefault" /> Default calendar</label>
+              <span class="hint">Used for anyone whose department or region has no calendar of its own.</span>
+            </div>
+          </form>
+          <footer class="card-footer">
+            <span class="spacer"></span>
+            <button type="button" class="btn" [disabled]="saving() || (!state().dirty && selectedId() !== 'new')" (click)="discard()">
+              {{ selectedId() === 'new' ? 'Cancel' : 'Discard changes' }}
+            </button>
+            <button type="submit" form="calendar-form" class="btn btn-primary" [disabled]="saving() || (!state().dirty && selectedId() !== 'new')">
+              {{ saving() ? 'Saving…' : selectedId() === 'new' ? 'Create calendar' : 'Save calendar' }}
+            </button>
+          </footer>
+        </section>
+
+        @if (selected(); as c) {
+          <section class="card">
+            <header class="card-header">
+              <h2>Holidays</h2>
+              <span class="count-pill">{{ holidays().length }}</span>
+              <span class="spacer"></span>
+              <label for="hol-year" class="sr-only">Year</label>
+              <select id="hol-year" class="select input-sm year" (change)="setYear($event)">
+                <option value="all" [selected]="year() === 'all'">All years</option>
+                @for (y of years(); track y) {
+                  <option [value]="y" [selected]="y === year()">{{ y }}</option>
+                }
+              </select>
+            </header>
+            <div class="card-body flush">
+              @if (holidays().length) {
+                <div class="table-wrap">
+                  <table class="table compact">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Holiday</th>
+                        <th>Kind</th>
+                        <th><span class="sr-only">Actions</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (h of holidays(); track h.id) {
+                        <tr>
+                          <td class="nowrap num">{{ h.date | dateOnly: 'weekday' }}</td>
+                          <td>{{ h.name }}</td>
+                          <td><span [class]="'badge ' + kindTone(h.kind)">{{ h.kind | humanize }}</span></td>
+                          <td class="actions">
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-icon btn-xs"
+                              [attr.aria-label]="'Remove ' + h.name"
+                              title="Remove holiday"
+                              [disabled]="holidayBusy()"
+                              (click)="removeHoliday(h)"
+                            >
+                              <fu-icon name="trash" [size]="14" />
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              } @else {
+                <fu-empty
+                  icon="calendar"
+                  [title]="year() === 'all' ? 'No holidays yet' : 'No holidays in ' + year()"
+                  message="Add public, company and regional holidays below."
+                  [compact]="true"
+                />
+              }
+            </div>
+            <form [formGroup]="holidayForm" class="card-footer add-row" (ngSubmit)="addHoliday()" novalidate>
+              <fu-date-input formControlName="date" inputId="hol-date" ariaLabel="Holiday date" class="date" />
+              <input class="input name" formControlName="name" placeholder="Holiday name" aria-label="Holiday name" maxlength="120" />
+              <select class="select kind" formControlName="kind" aria-label="Holiday kind">
+                @for (k of kinds; track k) {
+                  <option [ngValue]="k">{{ k | humanize }}</option>
+                }
+              </select>
+              <button type="submit" class="btn btn-primary btn-sm" [disabled]="holidayBusy() || !holidayState().valid">
+                <fu-icon name="plus" /> Add holiday
+              </button>
+            </form>
+          </section>
+        }
+      } @else {
+        <section class="card">
+          <fu-empty icon="calendar" title="No calendar selected" message="Pick a calendar on the left or create a new one." />
+        </section>
+      }
+    </div>
+  </div>
+}

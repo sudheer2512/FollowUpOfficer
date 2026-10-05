@@ -65,7 +65,7 @@ export class OutcomeBadgeComponent {
             </tr>
           </thead>
           <tbody>
-            @for (i of instances(); track i.id) {
+            @for (i of visible(); track i.id) {
               <tr>
                 @if (showDefinition()) {
                   <td><a [routerLink]="['/recurring', i.definitionId]" class="truncate" style="max-width:240px;display:inline-block">{{ i.definitionTitle }}</a></td>
@@ -95,14 +95,24 @@ export class OutcomeBadgeComponent {
           </tbody>
         </table>
       </div>
+      @if (limit() && instances().length > limit()!) {
+        <div class="small muted more">+ {{ instances().length - limit()! }} more</div>
+      }
     }
   `,
-  styles: `:host { display: block; min-width: 0; } .reason { max-width: 280px; } td fu-status { margin-left: 6px; }`,
+  styles: `:host { display: block; min-width: 0; } .reason { max-width: 280px; } td fu-status { margin-left: 6px; } .more { padding: 8px 16px; border-top: 1px solid var(--border); }`,
 })
 export class RecurringInstanceTableComponent {
   readonly instances = input<RecurringInstanceDto[]>([]);
   readonly loading = input(false);
   readonly showDefinition = input(false);
+  /** Show at most N rows. */
+  readonly limit = input<number | null>(null);
+
+  protected readonly visible = computed(() => {
+    const l = this.limit();
+    return l ? this.instances().slice(0, l) : this.instances();
+  });
   readonly emptyTitle = input('No occurrences');
   readonly emptyMessage = input('');
 

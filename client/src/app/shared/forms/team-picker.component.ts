@@ -3,6 +3,8 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Guid } from '../../core/models/common.models';
 import { LookupsStore } from '../../core/state/lookups.store';
 
+let teamSeq = 0;
+
 /**
  * Team picker. Single mode renders a <select>; multiple mode renders toggle chips.
  *   <fu-team-picker formControlName="teamId" />                      value: Guid | null
@@ -31,7 +33,7 @@ import { LookupsStore } from '../../core/state/lookups.store';
         }
       </div>
     } @else {
-      <select class="select" [attr.aria-label]="ariaLabel() || 'Team'" [disabled]="disabled()" (change)="selectOne($any($event.target).value)" (blur)="onTouched()">
+      <select class="select" [id]="selectId()" [attr.aria-label]="ariaLabel() || 'Team'" [disabled]="disabled()" (change)="selectOne($any($event.target).value)" (blur)="onTouched()">
         <option value="">{{ emptyLabel() }}</option>
         @for (t of teams(); track t.id) {
           <option [value]="t.id" [selected]="value()[0] === t.id">{{ t.name }}</option>
@@ -45,6 +47,8 @@ export class TeamPickerComponent implements ControlValueAccessor {
   private readonly store = inject(LookupsStore);
   readonly multiple = input(false);
   readonly emptyLabel = input('No team');
+  /** id of the <select> (single mode) so a <label for> can point at it. */
+  readonly selectId = input(`fu-team-${++teamSeq}`);
   readonly ariaLabel = input('');
   /** Only teams of this department. */
   readonly departmentId = input<Guid | null>(null);

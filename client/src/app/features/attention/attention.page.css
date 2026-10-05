@@ -1,0 +1,7 @@
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.search { flex: 0 1 320px; min-width: 200px; }
+
+.types { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
+.types .cnt { font-weight: 600; opacity: 0.8; }
+
+.list-card { overflow: hidden; }

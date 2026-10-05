@@ -1,0 +1,98 @@
+<div class="att-list" [class.compact]="compact()" [attr.role]="rows().length ? 'list' : null">
+  @for (row of rows(); track row.item.id) {
+    @let a = row.item;
+    <article class="att-row" role="listitem" [class.busy]="isBusy(a.id)" [attr.aria-busy]="isBusy(a.id)">
+      <span class="type-ic tone-{{ row.tone }}" [attr.title]="a.typeLabel || (a.type | humanize)">
+        <fu-icon [name]="row.icon" [size]="16" />
+      </span>
+
+      <div class="main">
+        <div class="head">
+          <span class="chip sm outline type-chip">{{ a.typeLabel || (a.type | humanize) }}</span>
+          @if (row.status; as st) {
+            <span class="chip sm tone-{{ st.tone }}">{{ st.text }}</span>
+          }
+        </div>
+        @if (a.task; as t) {
+          <a class="title" [routerLink]="['/tasks', t.id]">{{ a.title }}</a>
+        } @else {
+          <span class="title">{{ a.title }}</span>
+        }
+        @if (a.detail) {
+          <p class="detail" [class.clamp-2]="!compact()" [class.truncate]="compact()" [attr.title]="compact() ? a.detail : null">
+            {{ a.detail }}
+          </p>
+        }
+        <div class="meta">
+          @if (a.task; as t) {
+            <a class="task-number" [routerLink]="['/tasks', t.id]" tabindex="-1">{{ t.number }}</a>
+            <fu-deadline [text]="t.deadlineText" [overdue]="t.isOverdue" [bucket]="t.bucket" />
+            <span class="truncate who">{{ t.primaryAssignee?.name ?? t.teamName ?? 'Unassigned' }}</span>
+          }
+          <span class="nowrap">{{ a.createdAt | ago }}</span>
+        </div>
+
+        @if (!compact() && row.actions.length) {
+          <div class="actions" role="group" [attr.aria-label]="'Actions for ' + a.title">
+            @for (act of row.actions; track act.key) {
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-good]="act.style === 'good'"
+                [class.btn-danger]="act.style === 'danger'"
+                [class.btn-ghost]="act.style === 'quiet'"
+                [disabled]="isBusy(a.id)"
+                (click)="run(a, act.key)"
+              >
+                <fu-icon [name]="act.icon" [size]="14" />
+                {{ act.label }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="side">
+        <fu-score [value]="a.score" />
+        @if (compact() && row.actions.length) {
+          <div class="actions" role="group" [attr.aria-label]="'Actions for ' + a.title">
+            @for (act of row.primary; track act.key) {
+              <button
+                type="button"
+                class="btn btn-xs"
+                [class.btn-good]="act.style === 'good'"
+                [class.btn-danger]="act.style === 'danger'"
+                [class.btn-ghost]="act.style === 'quiet'"
+                [disabled]="isBusy(a.id)"
+                (click)="run(a, act.key)"
+              >
+                <fu-icon [name]="act.icon" [size]="13" />
+                {{ act.label }}
+              </button>
+            }
+            @if (row.overflow.length) {
+              <fu-dropdown icon="more" [caret]="false" buttonClass="btn btn-xs btn-ghost btn-icon" ariaLabel="More actions">
+                @for (act of row.overflow; track act.key) {
+                  <button type="button" class="menu-item" role="menuitem" [disabled]="isBusy(a.id)" (click)="run(a, act.key)">
+                    <fu-icon [name]="act.icon" [size]="14" />
+                    {{ act.label }}
+                  </button>
+                }
+              </fu-dropdown>
+            }
+          </div>
+        }
+      </div>
+    </article>
+  } @empty {
+    <fu-empty icon="check-circle" title="Nothing needs your attention" message="Exceptions appear here the moment they happen." [compact]="compact()" />
+  }
+</div>
+
+@if (hiddenCount() > 0) {
+  <div class="more small muted">+ {{ hiddenCount() }} more</div>
+}
+
+@if (escalating(); as task) {
+  <fu-escalate-dialog [task]="task" (closed)="escalating.set(null)" (escalated)="onEscalated()" />
+}

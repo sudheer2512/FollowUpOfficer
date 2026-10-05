@@ -1,0 +1,8 @@
+:host { display: block; }
+.panel { display: flex; flex-direction: column; gap: 18px; }
+.grp { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.grp > legend { padding: 0; margin-bottom: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips .dot { width: 7px; height: 7px; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.toggles { display: flex; flex-direction: column; gap: 10px; }

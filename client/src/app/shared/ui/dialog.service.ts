@@ -9,7 +9,8 @@ export interface ConfirmOptions {
   danger?: boolean;
 }
 
-export interface PromptOptions extends ConfirmOptions {
+export interface PromptOptions extends Omit<ConfirmOptions, 'message'> {
+  message?: string;
   label?: string;
   placeholder?: string;
   value?: string;

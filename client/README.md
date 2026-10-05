@@ -55,6 +55,34 @@ src/app/
   features/<area>/       routed pages (*.page.ts) and their private components
 ```
 
+## Routes
+
+| Route | Page | Access |
+|---|---|---|
+| `/login` | Sign in (demo personas, Microsoft button when Entra is enabled) | guests |
+| `/` | CEO Workbench — summary, 13 KPI tiles, §79 sections | executives (others → `/me`) |
+| `/attention` | CEO Attention Required — ranked items with inline actions | executives |
+| `/me` | My dashboard | everyone |
+| `/team`, `/team/:id` | Team dashboard (member load table + chart) | team leaders / managers / executives |
+| `/tasks` | Task list — filters synced to the URL, saved views | everyone |
+| `/tasks/:id` | Task detail — quick actions, Overview / Subtasks / Timeline / Communications / Completion / Audit | everyone (server enforces visibility) |
+| `/commitments` | Commitments (Due soon / Open / Missed / Met / All, "made to me") | everyone |
+| `/recurring`, `/recurring/new`, `/recurring/:id`, `/recurring/:id/edit` | Recurring definitions, rule builder with live preview, instance history | everyone |
+| `/projects`, `/projects/:id` | Projects with derived status | everyone |
+| `/meetings`, `/meetings/new`, `/meetings/:id` | Meetings, action items → tasks | everyone |
+| `/communications` | Messages, review queue, failed (`?tab=`, `?message=` opens the drawer) | everyone |
+| `/ask` | Conversational Q&A | everyone |
+| `/review` | Weekly executive review + daily digest preview | executives |
+| `/reports` | Metrics, charts and performance tables | executives |
+| `/templates`, `/templates/new`, `/templates/:id` | Task templates + instantiate | everyone |
+| `/admin/organisation`, `/admin/calendars`, `/admin/escalation`, `/admin/settings` | Administration | administrators |
+| `/admin/monitor`, `/admin/audit` | Integration monitor (§67), audit log | executives + administrators |
+| `/simulator` | Microsoft 365 simulator (shown in the nav only in Emulator mode) | executives + administrators |
+| `/search?q=` | Global search results grouped by kind | everyone |
+
+The Delegate dialog is global (top bar, shortcut `N`, microphone button, "Create subtask") and is lazy-loaded with
+`@defer`. The inbox drawer opens from the bell.
+
 ## Conventions
 
 - **Wire formats.** Enums are strings; `[Flags]` enums are comma lists (`"TeamLeader, Ceo"`) — use
@@ -82,5 +110,7 @@ src/app/
 
 ## Tests
 
-Pure helpers have unit tests (`*.spec.ts` next to them): TaskFilter ↔ query string mapping, follow-up / recurrence
-descriptions, flags and date helpers. They run headless with Vitest + jsdom (`npm test`).
+Pure helpers have unit tests (`*.spec.ts` next to them): TaskFilter ↔ query string mapping, follow-up / recurrence /
+due-rule descriptions, flags, dates and tones (`core/util`), plus feature helpers — attention action inference,
+task action permissions, timeline kinds, filter chips, delegate/recurring form mapping, template tree validation,
+report periods and formats, search highlighting and Ask history. They run headless with Vitest + jsdom (`npm test`).

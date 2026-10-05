@@ -1,0 +1,486 @@
+<form class="rf" [formGroup]="form()" novalidate>
+  <div class="rf-main">
+    <!-- ── Basics ── -->
+    <details class="sec" open>
+      <summary><span class="sec-title">Basics</span></summary>
+      <div class="sec-body form-grid">
+        <div class="field full">
+          <div class="label-row">
+            <label [for]="uid() + '-title'" class="req">Title</label>
+            <fu-dropdown label="Insert token" icon="sparkles" buttonClass="btn btn-xs btn-ghost" align="right" ariaLabel="Insert a title token">
+              <div class="menu-label">Filled in for each occurrence</div>
+              @for (t of tokens(); track t.token) {
+                <button type="button" class="menu-item token" [attr.title]="t.meaning" (click)="insertToken(t.token)">
+                  <code>{{ t.token }}</code>
+                  <span class="tok-ex">{{ t.example }}</span>
+                </button>
+              }
+            </fu-dropdown>
+          </div>
+          <input
+            #titleInput
+            class="input"
+            [id]="uid() + '-title'"
+            formControlName="titleTemplate"
+            maxlength="300"
+            autocomplete="off"
+            placeholder="e.g. GST return — {PrevMonthYear}"
+          />
+          <span class="hint">{{ titleHint }}</span>
+        </div>
+
+        <div class="field">
+          <label [for]="uid() + '-code'">Code <span class="muted">(optional)</span></label>
+          <input class="input" [id]="uid() + '-code'" formControlName="code" maxlength="40" autocomplete="off" placeholder="Generated when empty" />
+        </div>
+        <div class="field">
+          <label [for]="uid() + '-owner'">Owner</label>
+          <fu-person-picker formControlName="ownerId" [inputId]="uid() + '-owner'" placeholder="You (default)" />
+        </div>
+
+        <div class="field full">
+          <label [for]="uid() + '-desc'">Description</label>
+          <textarea class="textarea" rows="2" [id]="uid() + '-desc'" formControlName="description" placeholder="What has to be done each time"></textarea>
+        </div>
+
+        <div class="field">
+          <label [for]="uid() + '-primary'">Primary responsible</label>
+          <fu-person-picker formControlName="primaryAssigneeId" [inputId]="uid() + '-primary'" />
+        </div>
+        <div class="field">
+          <span class="label">Team</span>
+          <fu-team-picker formControlName="teamId" ariaLabel="Team" emptyLabel="No team" />
+          @if (!v().primaryAssigneeId && v().teamId) {
+            <span class="hint">No person picked: the team leader is responsible.</span>
+          }
+        </div>
+        <div class="field full">
+          <label [for]="uid() + '-also'">Additional assignees</label>
+          <fu-person-picker
+            formControlName="additionalAssigneeIds"
+            [multiple]="true"
+            [inputId]="uid() + '-also'"
+            [excludeIds]="primaryExclude()"
+            placeholder="Add people…"
+          />
+        </div>
+
+        <div class="full form-grid-3">
+          <div class="field">
+            <label [for]="uid() + '-dept'">Department</label>
+            <fu-lookup-select kind="department" formControlName="departmentId" [selectId]="uid() + '-dept'" emptyLabel="No department" />
+          </div>
+          <div class="field">
+            <label [for]="uid() + '-proj'">Project</label>
+            <fu-lookup-select kind="project" formControlName="projectId" [selectId]="uid() + '-proj'" emptyLabel="No project" />
+          </div>
+          <div class="field">
+            <label [for]="uid() + '-cat'">Category</label>
+            <fu-lookup-select kind="category" formControlName="categoryId" [selectId]="uid() + '-cat'" emptyLabel="No category" />
+          </div>
+          <div class="field">
+            <label [for]="uid() + '-prio'">Priority</label>
+            <select class="select" [id]="uid() + '-prio'" formControlName="priority">
+              @for (p of priorities; track p) {
+                <option [value]="p">{{ p | humanize }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label [for]="uid() + '-crit'">Criticality</label>
+            <select class="select" [id]="uid() + '-crit'" formControlName="criticality">
+              @for (c of criticalities; track c) {
+                <option [value]="c">{{ c | humanize }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label [for]="uid() + '-vis'">Visibility</label>
+            <select class="select" [id]="uid() + '-vis'" formControlName="visibility">
+              @for (x of visibilities; track x) {
+                <option [value]="x">{{ x | humanize }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Schedule (rule builder) ── -->
+    <details class="sec" open formGroupName="rule">
+      <summary><span class="sec-title">Schedule</span></summary>
+      <div class="sec-body stack-lg">
+        <div class="form-grid">
+          <div class="field">
+            <label [for]="uid() + '-freq'">Repeats</label>
+            <select class="select" [id]="uid() + '-freq'" formControlName="frequency">
+              @for (f of frequencies; track f) {
+                <option [value]="f">{{ f | humanize }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label [for]="uid() + '-ctime'">Create the task at</label>
+            <input class="input" type="time" [id]="uid() + '-ctime'" formControlName="createTime" />
+          </div>
+        </div>
+
+        @switch (frequency()) {
+          @case ('WorkingDays') {
+            <p class="hint">Monday to Friday, skipping the company and public holidays in the business calendar.</p>
+          }
+          @case ('Weekly') {
+            <div class="field">
+              <span class="label">On</span>
+              <div class="chips" role="group" aria-label="Weekdays">
+                @for (d of weekdays; track d) {
+                  <button
+                    type="button"
+                    class="chip selectable"
+                    [class.on]="v().rule.daysOfWeek.includes(d)"
+                    [attr.aria-pressed]="v().rule.daysOfWeek.includes(d)"
+                    [attr.aria-label]="d"
+                    (click)="toggleWeekday(d)"
+                  >
+                    {{ d.slice(0, 3) }}
+                  </button>
+                }
+              </div>
+              <span class="hint">No day picked: the weekday of the start date.</span>
+            </div>
+          }
+          @case ('FinancialYear') {
+            <div class="field narrow">
+              <label [for]="uid() + '-fy'">Financial year starts in</label>
+              <select class="select" [id]="uid() + '-fy'" formControlName="fiscalYearStartMonth">
+                @for (m of monthOptions; track m.value) {
+                  <option [ngValue]="m.value">{{ m.long }}</option>
+                }
+              </select>
+              <span class="hint">Created once a year, in the first month of the financial year.</span>
+            </div>
+          }
+          @case ('AnchorDates') {
+            <div class="field">
+              <span class="label">Anchor dates</span>
+              <div class="chips">
+                @for (d of v().rule.anchorDates; track d) {
+                  <span class="chip">
+                    {{ d | dateOnly }}
+                    <button type="button" class="x" [attr.aria-label]="'Remove anchor date ' + d" (click)="removeAnchor(d)"><fu-icon name="x" [size]="12" /></button>
+                  </span>
+                } @empty {
+                  <span class="hint">No anchor dates yet — add one such as a licence or contract expiry.</span>
+                }
+              </div>
+              <div class="inline-field mt-4">
+                <input #anchorIn class="input input-sm date-in" type="date" aria-label="Anchor date to add" (keydown.enter)="$event.preventDefault(); addAnchor(anchorIn)" />
+                <button type="button" class="btn btn-sm" (click)="addAnchor(anchorIn)"><fu-icon name="plus" /> Add date</button>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label [for]="uid() + '-offset'">Offset in days</label>
+                <input class="input" type="number" min="-366" max="366" [id]="uid() + '-offset'" formControlName="anchorOffsetDays" />
+                <span class="hint">{{ anchorSentence() }}. Negative numbers mean before.</span>
+              </div>
+              <div class="field end">
+                <label class="switch"><input type="checkbox" formControlName="repeatAnchorsYearly" /> Repeat every year</label>
+                <span class="hint">For renewals: the same dates in later years.</span>
+              </div>
+            </div>
+          }
+        }
+
+        @if (usesMonthList()) {
+          <div class="field">
+            <span class="label">In these months</span>
+            <div class="chips" role="group" aria-label="Months">
+              @for (m of monthOptions; track m.value) {
+                <button
+                  type="button"
+                  class="chip selectable"
+                  [class.on]="v().rule.months.includes(m.value)"
+                  [attr.aria-pressed]="v().rule.months.includes(m.value)"
+                  [attr.aria-label]="m.long"
+                  (click)="toggleMonth(m.value)"
+                >
+                  {{ m.short }}
+                </button>
+              }
+            </div>
+            @if (monthListHint()) {
+              <span class="hint">{{ monthListHint() }}</span>
+            }
+          </div>
+          @if ((frequency() === 'Quarterly' || frequency() === 'HalfYearly') && !v().rule.months.length) {
+            <div class="inline-field">
+              <label class="switch"><input type="checkbox" formControlName="alignToFiscalYear" /> Align to the financial year</label>
+              @if (v().rule.alignToFiscalYear) {
+                <label class="small muted" [for]="uid() + '-fy2'">starting in</label>
+                <select class="select input-sm auto-w" [id]="uid() + '-fy2'" formControlName="fiscalYearStartMonth">
+                  @for (m of monthOptions; track m.value) {
+                    <option [ngValue]="m.value">{{ m.long }}</option>
+                  }
+                </select>
+              }
+            </div>
+          }
+        }
+
+        @if (hasInterval()) {
+          <div class="inline-field">
+            <label [for]="uid() + '-interval'">Every</label>
+            <input class="input input-sm num-in" type="number" min="1" max="99" [id]="uid() + '-interval'" formControlName="interval" />
+            <span>{{ intervalUnit() }}{{ rule().interval === 1 ? '' : 's' }}</span>
+            @if (frequency() === 'Weekly' && rule().interval === 2) {
+              <span class="chip sm tone-accent">Fortnightly</span>
+            }
+          </div>
+        }
+
+        @if (isMonthBased()) {
+          <div class="form-grid">
+            <div class="field">
+              <label [for]="uid() + '-pattern'">{{ frequency() === 'Monthly' ? 'On' : 'Day within the month' }}</label>
+              <select class="select" [id]="uid() + '-pattern'" formControlName="monthlyPattern">
+                @for (p of patterns; track p) {
+                  <option [value]="p">{{ patternLabel[p] }}</option>
+                }
+              </select>
+            </div>
+            @switch (v().rule.monthlyPattern) {
+              @case ('DayOfMonth') {
+                <div class="field">
+                  <label [for]="uid() + '-dom'">Day of the month</label>
+                  <input class="input" type="number" min="1" max="31" [id]="uid() + '-dom'" formControlName="dayOfMonth" />
+                  <span class="hint">Shorter months use their last day.</span>
+                </div>
+              }
+              @case ('NthWeekday') {
+                <div class="field">
+                  <span class="label">Which weekday</span>
+                  <div class="row">
+                    <select class="select" formControlName="weekOrdinal" aria-label="Week of the month">
+                      @for (o of ordinals; track o.value) {
+                        <option [ngValue]="o.value">{{ o.label }}</option>
+                      }
+                    </select>
+                    <select class="select" formControlName="weekday" aria-label="Weekday">
+                      @for (d of weekdays; track d) {
+                        <option [value]="d">{{ d }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        }
+
+        <div class="sentence" aria-live="polite"><fu-icon name="repeat" [size]="14" /><span>{{ sentence() }}</span></div>
+      </div>
+    </details>
+
+    <!-- ── Due rule ── -->
+    <details class="sec" open formGroupName="due">
+      <summary><span class="sec-title">Due date</span></summary>
+      <div class="sec-body form-grid">
+        <div class="field">
+          <label [for]="uid() + '-duekind'">Each task is due</label>
+          <select class="select" [id]="uid() + '-duekind'" formControlName="kind">
+            @for (k of dueKinds; track k) {
+              <option [value]="k">{{ dueKindLabel[k] }}</option>
+            }
+          </select>
+        </div>
+        @switch (v().due.kind) {
+          @case ('AfterDays') {
+            <div class="field">
+              <label [for]="uid() + '-dueval'">Days after the occurrence</label>
+              <input class="input" type="number" min="0" max="365" [id]="uid() + '-dueval'" formControlName="value" />
+            </div>
+          }
+          @case ('AfterWorkingDays') {
+            <div class="field">
+              <label [for]="uid() + '-dueval'">Working days after the occurrence</label>
+              <input class="input" type="number" min="0" max="365" [id]="uid() + '-dueval'" formControlName="value" />
+            </div>
+          }
+          @case ('DayOfMonth') {
+            <div class="field">
+              <label [for]="uid() + '-dueval'">Day of the month</label>
+              <input class="input" type="number" min="1" max="31" [id]="uid() + '-dueval'" formControlName="value" />
+              <span class="hint">If that day has passed, the next month's.</span>
+            </div>
+          }
+          @case ('WeekdayOfSameWeek') {
+            <div class="field">
+              <label [for]="uid() + '-duewd'">Weekday</label>
+              <select class="select" [id]="uid() + '-duewd'" formControlName="weekday">
+                @for (d of weekdays; track d) {
+                  <option [value]="d">{{ d }}</option>
+                }
+              </select>
+            </div>
+          }
+          @case ('AnchorDate') {
+            @if (frequency() !== 'AnchorDates') {
+              <p class="hint field">Only anchor-date schedules have an anchor; other schedules fall back to the occurrence date.</p>
+            }
+          }
+        }
+        <div class="field">
+          <label [for]="uid() + '-duetime'">Due time <span class="muted">(optional)</span></label>
+          <input class="input" type="time" [id]="uid() + '-duetime'" formControlName="dueTime" />
+        </div>
+        <div class="field">
+          <label [for]="uid() + '-duehol'">If the due date is not a working day</label>
+          <select class="select" [id]="uid() + '-duehol'" formControlName="holidayHandling">
+            @for (h of dueHolidayOptions; track h) {
+              <option [value]="h">{{ h === 'Keep' ? 'Keep it' : (h | humanize) }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Holidays & downtime ── -->
+    <details class="sec" [open]="!collapsible()">
+      <summary><span class="sec-title">Holidays &amp; downtime</span><span class="sec-sum">{{ summaries().holidays }}</span></summary>
+      <div class="sec-body stack-lg">
+        <fieldset class="opts">
+          <legend class="label">If an occurrence falls on a weekend or holiday</legend>
+          @if (alreadyWorkingDays()) {
+            <p class="hint">This schedule always lands on working days, so this setting has no effect.</p>
+          }
+          <div class="opts-grid">
+            @for (h of holidayOptions; track h) {
+              <label class="opt" [class.on]="v().holidayHandling === h">
+                <input type="radio" name="holidayHandling" formControlName="holidayHandling" [value]="h" />
+                <span>
+                  <span class="opt-title">{{ h | humanize }}</span>
+                  <span class="opt-desc">{{ holidayText[h] }}</span>
+                </span>
+              </label>
+            }
+          </div>
+        </fieldset>
+
+        <fieldset class="opts">
+          <legend class="label">If the system was down when an occurrence was due</legend>
+          <div class="opts-grid">
+            @for (c of catchUps; track c) {
+              <label class="opt" [class.on]="v().catchUp === c">
+                <input type="radio" name="catchUp" formControlName="catchUp" [value]="c" />
+                <span class="opt-title">{{ c | humanize }}</span>
+              </label>
+            }
+          </div>
+          @if (v().catchUp === 'GenerateWithinWindow') {
+            <div class="inline-field mt-4">
+              <label [for]="uid() + '-window'">Window</label>
+              <input class="input input-sm num-in" type="number" min="1" max="365" [id]="uid() + '-window'" formControlName="catchUpWindowDays" />
+              <span>days</span>
+            </div>
+          }
+          <div class="alert tone-info explain mt-4">
+            <fu-icon name="info" />
+            <div>
+              <strong>After downtime:</strong> {{ catchUpText[v().catchUp] }}
+              <div class="xsmall muted mt-4">Every missed occurrence is recorded in the history with a reason — none is dropped silently.</div>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+    </details>
+
+    <!-- ── Follow-up ── -->
+    <details class="sec" [open]="!collapsible()">
+      <summary><span class="sec-title">Follow-up</span><span class="sec-sum">{{ summaries().followUp }}</span></summary>
+      <div class="sec-body stack">
+        <fu-follow-up-picker formControlName="followUp" />
+        <p class="hint">Each generated task is followed up on this schedule until it is completed.</p>
+      </div>
+    </details>
+
+    <!-- ── Checklist ── -->
+    <details class="sec" [open]="!collapsible()">
+      <summary><span class="sec-title">Checklist</span><span class="sec-sum">{{ summaries().checklist }}</span></summary>
+      <div class="sec-body stack">
+        <p class="hint">Each item becomes a subtask of every generated task.</p>
+        @if (form().controls.checklist.length) {
+          <ol class="checklist">
+            @for (c of form().controls.checklist.controls; track c; let i = $index, first = $first, last = $last) {
+              <li>
+                <span class="n muted" aria-hidden="true">{{ i + 1 }}.</span>
+                <input
+                  class="input input-sm"
+                  [id]="checklistId(i)"
+                  [formControl]="c"
+                  [attr.aria-label]="'Checklist item ' + (i + 1)"
+                  placeholder="e.g. Reconcile purchase register"
+                  (keydown.enter)="$event.preventDefault(); addChecklistItem(i + 1)"
+                />
+                <button type="button" class="btn btn-ghost btn-icon btn-xs" [disabled]="first" [attr.aria-label]="'Move item ' + (i + 1) + ' up'" (click)="moveChecklistItem(i, -1)">
+                  <fu-icon name="arrow-up" [size]="14" />
+                </button>
+                <button type="button" class="btn btn-ghost btn-icon btn-xs" [disabled]="last" [attr.aria-label]="'Move item ' + (i + 1) + ' down'" (click)="moveChecklistItem(i, 1)">
+                  <fu-icon name="arrow-down" [size]="14" />
+                </button>
+                <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Remove item ' + (i + 1)" (click)="removeChecklistItem(i)">
+                  <fu-icon name="x" [size]="14" />
+                </button>
+              </li>
+            }
+          </ol>
+        }
+        <div><button type="button" class="btn btn-sm" (click)="addChecklistItem()"><fu-icon name="plus" /> Add item</button></div>
+      </div>
+    </details>
+
+    <!-- ── Range ── -->
+    <details class="sec" [open]="!collapsible()">
+      <summary><span class="sec-title">Range</span><span class="sec-sum">{{ summaries().range }}</span></summary>
+      <div class="sec-body form-grid-3">
+        <div class="field">
+          <label [for]="uid() + '-start'">Starts</label>
+          <fu-date-input formControlName="startDate" [inputId]="uid() + '-start'" />
+        </div>
+        <div class="field">
+          <label [for]="uid() + '-end'">Ends <span class="muted">(optional)</span></label>
+          <fu-date-input formControlName="endDate" [inputId]="uid() + '-end'" [min]="v().startDate" />
+        </div>
+        <div class="field">
+          <label [for]="uid() + '-max'">Max occurrences</label>
+          <input class="input" type="number" min="1" [id]="uid() + '-max'" formControlName="maxOccurrences" placeholder="No limit" />
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Controls ── -->
+    <details class="sec" [open]="!collapsible()">
+      <summary><span class="sec-title">Controls</span><span class="sec-sum">{{ summaries().controls }}</span></summary>
+      <div class="sec-body form-grid">
+        <label class="switch"><input type="checkbox" formControlName="requiresApproval" /> Completion needs approval</label>
+        <label class="switch"><input type="checkbox" formControlName="requiresAcknowledgement" /> Assignee must acknowledge each task</label>
+        <div class="field full">
+          <label [for]="uid() + '-policy'">Escalation policy</label>
+          <fu-lookup-select kind="policy" formControlName="escalationPolicyId" [selectId]="uid() + '-policy'" emptyLabel="Default policy" />
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ── Live preview ── -->
+  <aside class="rf-side">
+    <section class="card">
+      <header class="card-header"><h3>Next {{ previewCount() }} occurrences</h3></header>
+      <div class="card-body">
+        <p class="hint mb-8">Live preview. Amber dates were moved off a weekend or holiday.</p>
+        <fu-recurrence-preview [request]="previewRequest()" emptyHint="Add an anchor date to see the occurrences." />
+      </div>
+    </section>
+    <ng-content select="[rf-side]" />
+  </aside>
+</form>

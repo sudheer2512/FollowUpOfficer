@@ -1,0 +1,119 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Weekly executive review</h1>
+      <div class="subtitle">{{ heading() }}</div>
+    </div>
+    <div class="actions">
+      <div class="week-picker" role="group" aria-label="Choose week">
+        <button type="button" class="btn btn-icon" aria-label="Previous week" title="Previous week" (click)="shiftWeek(-1)">
+          <fu-icon name="chevron-left" />
+        </button>
+        <label class="sr-only" for="review-week">Week starting</label>
+        <input id="review-week" class="input" type="date" [value]="weekStart()" (change)="pickDate($any($event.target).value)" />
+        <button type="button" class="btn btn-icon" aria-label="Next week" title="Next week" [disabled]="isThisWeek()" (click)="shiftWeek(1)">
+          <fu-icon name="chevron-right" />
+        </button>
+      </div>
+      <button type="button" class="btn" [disabled]="isThisWeek()" (click)="goToWeek(thisWeek)">This week</button>
+      @if (session.isExecutive()) {
+        <button type="button" class="btn btn-primary" [disabled]="sending() || !review.value()" (click)="sendWeeklyReview()">
+          <fu-icon name="send" [size]="14" /> {{ sending() ? 'Sending…' : 'Send weekly review' }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="main-col">
+      @if (review.loading() && !review.value()) {
+        <section class="card"><div class="card-body"><fu-skeleton variant="lines" [rows]="5" /></div></section>
+        <section class="card"><fu-skeleton variant="table" [rows]="5" /></section>
+      } @else if (review.error()) {
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" />
+          <span class="spacer">{{ review.error() }}</span>
+          <button type="button" class="btn btn-sm" (click)="load()">Retry</button>
+        </div>
+      } @else if (review.value(); as r) {
+        @if (r.summary; as sum) {
+          <section class="card summary">
+            <header class="card-header">
+              <fu-icon name="sparkles" class="text-accent" />
+              <h2>Executive summary</h2>
+              <span class="spacer"></span>
+              <span class="xsmall subtle" [attr.title]="'Generated ' + (sum.generatedAt | dateTime)">AI: {{ sum.provider || 'Heuristic' }}</span>
+            </header>
+            <div class="card-body">
+              @if (sum.headline) {
+                <p class="headline">{{ sum.headline }}</p>
+              }
+              @if (sum.narrative) {
+                <p class="narrative">{{ sum.narrative }}</p>
+              }
+              <fu-summary-points [points]="sum.points" />
+            </div>
+          </section>
+        }
+
+        <section class="card">
+          <header class="card-header">
+            <fu-icon name="users" class="muted" />
+            <h2>Team status</h2>
+            <span class="count-pill">{{ teams().length }}</span>
+          </header>
+          <div class="card-body flush">
+            <fu-team-status-table [rows]="teams()" />
+          </div>
+        </section>
+
+        @for (s of sections(); track s.key) {
+          <section class="card">
+            <header class="card-header">
+              <h2>{{ s.title }}</h2>
+              @if (s.count) {
+                <span class="count-pill">{{ s.count }}</span>
+              }
+            </header>
+            @if (s.empty) {
+              <div class="card-body small muted">Nothing to report this week.</div>
+            } @else {
+              @if (s.lines.length) {
+                <div class="card-body">
+                  <ul class="lines">
+                    @for (line of s.lines; track $index) {
+                      <li>{{ line }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+              @if (s.tasks.length) {
+                <div class="card-body flush part">
+                  <fu-task-table [tasks]="s.tasks" [compact]="true" [limit]="15" />
+                </div>
+              }
+              @if (s.commitments.length) {
+                <div class="card-body flush part">
+                  <fu-commitment-table [commitments]="s.commitments" [compact]="true" [limit]="15" />
+                </div>
+              }
+              @if (s.instances.length) {
+                <div class="card-body flush part">
+                  <fu-instance-table [instances]="s.instances" [showDefinition]="true" />
+                </div>
+              }
+            }
+          </section>
+        } @empty {
+          <section class="card">
+            <fu-empty icon="calendar" title="No review sections" message="The review for this week has no completed, overdue or upcoming items yet." />
+          </section>
+        }
+      }
+    </div>
+
+    <aside class="side-col">
+      <fu-digest-card [canSend]="session.isExecutive()" />
+    </aside>
+  </div>
+</div>

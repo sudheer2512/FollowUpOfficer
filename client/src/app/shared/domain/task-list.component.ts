@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TaskListItem } from '../../core/models/task.models';
+import { DateOnlyPipe } from '../pipes/format.pipes';
 import { EmptyStateComponent } from '../ui/empty-state.component';
 import { IconComponent } from '../ui/icon.component';
 import { CriticalityChipComponent, DeadlineTextComponent, HealthDotComponent, StatusBadgeComponent } from './indicators';
@@ -12,7 +13,7 @@ import { CriticalityChipComponent, DeadlineTextComponent, HealthDotComponent, St
 @Component({
   selector: 'fu-task-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, IconComponent, EmptyStateComponent, HealthDotComponent, CriticalityChipComponent, DeadlineTextComponent, StatusBadgeComponent],
+  imports: [RouterLink, DateOnlyPipe, IconComponent, EmptyStateComponent, HealthDotComponent, CriticalityChipComponent, DeadlineTextComponent, StatusBadgeComponent],
   template: `
     <div class="list">
       @for (t of visible(); track t.id) {
@@ -35,7 +36,7 @@ import { CriticalityChipComponent, DeadlineTextComponent, HealthDotComponent, St
                 <span class="text-orange">No response for {{ t.noResponseDays }} day{{ t.noResponseDays === 1 ? '' : 's' }}</span>
               }
               @if (detail() === 'commitment' && t.openCommitmentDate) {
-                <span>Committed for {{ t.openCommitmentDate }}</span>
+                <span>Committed for {{ t.openCommitmentDate | dateOnly: 'weekday' }}</span>
               }
               @if (detail() === 'blocked' && t.blockedReason) {
                 <span class="text-danger truncate">{{ t.blockedReason }}</span>

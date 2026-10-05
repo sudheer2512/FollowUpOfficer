@@ -1,0 +1,104 @@
+<fu-modal title="Mark complete" [subtitle]="detail().summary.number + ' · ' + detail().summary.title" size="lg" [dismissOnScrim]="false" (closed)="closed.emit()">
+  <form id="complete-form" class="stack-lg" [formGroup]="form" (ngSubmit)="submit()">
+    @if (detail().requiresApproval) {
+      <div class="alert tone-info small">
+        <fu-icon name="check-square" />
+        <span>This task requires approval. Your completion is sent to the approver, who can confirm it or ask for more work.</span>
+      </div>
+    }
+    @if (openSubtasks() > 0) {
+      <div class="alert tone-warning small">
+        <fu-icon name="alert-triangle" />
+        <div class="stack">
+          <span>{{ openSubtasks() }} subtask{{ openSubtasks() === 1 ? ' is' : 's are' }} still open.</span>
+          <label class="check">
+            <input type="checkbox" formControlName="forceWithOpenSubtasks" />
+            Complete even though {{ openSubtasks() }} subtask{{ openSubtasks() === 1 ? ' is' : 's are' }} open
+          </label>
+        </div>
+      </div>
+    }
+
+    <div class="form-grid">
+      <div class="field">
+        <label for="cp-date" class="req">Completion date</label>
+        <fu-date-input inputId="cp-date" formControlName="completionDate" [max]="today" />
+      </div>
+      <div class="field full">
+        <label for="cp-note">Completion note</label>
+        <textarea id="cp-note" class="textarea" rows="3" formControlName="note" maxlength="4000" placeholder="What was delivered, and anything the approver should check"></textarea>
+      </div>
+    </div>
+
+    <section class="stack" formArrayName="evidence" aria-labelledby="cp-evidence-title">
+      <div class="row">
+        <h3 id="cp-evidence-title" class="section-title" style="margin:0">Evidence</h3>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-sm" (click)="addRow()"><fu-icon name="plus" [size]="14" /> Add evidence</button>
+      </div>
+      @for (row of form.controls.evidence.controls; track row.controls.rowId.value; let i = $index) {
+        <div class="ev-row" [formGroupName]="i">
+          <div class="field">
+            <label [for]="'cp-kind-' + i">Kind</label>
+            <select class="select" [id]="'cp-kind-' + i" formControlName="kind">
+              @for (k of kinds; track k) {
+                <option [value]="k">{{ k | humanize }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label [for]="'cp-title-' + i" class="req">Title</label>
+            <input class="input" [id]="'cp-title-' + i" formControlName="title" maxlength="200" placeholder="e.g. Signed customer acceptance" />
+          </div>
+          <button type="button" class="btn btn-ghost btn-icon btn-sm rm" [attr.aria-label]="'Remove evidence ' + (i + 1)" (click)="removeRow(i)">
+            <fu-icon name="trash" [size]="14" />
+          </button>
+          <div class="field">
+            <label [for]="'cp-ref-' + i">Reference</label>
+            <input class="input" [id]="'cp-ref-' + i" formControlName="reference" maxlength="200" placeholder="Commit, ticket, doc no." />
+          </div>
+          <div class="field">
+            <label [for]="'cp-url-' + i">Link</label>
+            <input class="input" type="url" [id]="'cp-url-' + i" formControlName="url" placeholder="https://…" />
+            @if (row.controls.url.invalid && row.controls.url.touched) {
+              <span class="error">Enter a full link starting with https://</span>
+            }
+          </div>
+          <span></span>
+          <div class="wide file-line">
+            @switch (uploads()[row.controls.rowId.value]?.status) {
+              @case ('uploading') {
+                <fu-icon name="upload" [size]="14" class="muted" />
+                <span class="truncate">Uploading {{ uploads()[row.controls.rowId.value]?.fileName }}…</span>
+              }
+              @case ('done') {
+                <fu-icon [name]="icon(row.controls.kind.value)" [size]="14" class="text-good" />
+                <span class="truncate">{{ uploads()[row.controls.rowId.value]?.fileName }}</span>
+                <span class="muted nowrap">{{ uploads()[row.controls.rowId.value]?.size | fileSize }}</span>
+                <button type="button" class="btn btn-link small" (click)="clearFile(row)">Remove file</button>
+              }
+              @default {
+                @if (uploads()[row.controls.rowId.value]?.status === 'failed') {
+                  <span class="text-danger">Upload failed.</span>
+                }
+                <span class="btn btn-sm file-pick">
+                  <fu-icon name="paperclip" [size]="14" /> Attach file
+                  <input type="file" [attr.aria-label]="'Attach a file to evidence ' + (i + 1)" (change)="upload(row, $any($event.target))" />
+                </span>
+              }
+            }
+          </div>
+        </div>
+      } @empty {
+        <div class="muted small">No evidence yet. Documents, links, test results or a customer confirmation help the approver confirm quickly.</div>
+      }
+    </section>
+  </form>
+  <ng-container modal-footer>
+    <button type="button" class="btn" (click)="closed.emit()">Cancel</button>
+    <button type="submit" form="complete-form" class="btn btn-primary" [disabled]="!canSubmit()">
+      <fu-icon name="check-circle" [size]="15" />
+      {{ uploading() ? 'Uploading…' : detail().requiresApproval ? 'Submit for approval' : 'Mark complete' }}
+    </button>
+  </ng-container>
+</fu-modal>

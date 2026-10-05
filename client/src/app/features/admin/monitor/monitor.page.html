@@ -1,0 +1,92 @@
+<div class="page-header">
+  <div class="titles">
+    <h2>Integration monitor</h2>
+    <div class="subtitle">Microsoft 365 sync, background jobs and notification delivery. Refreshes every 10 seconds.</div>
+  </div>
+  <div class="actions">
+    <span class="small muted updated" aria-live="polite">
+      @if (data.loading() && data.value()) {
+        Refreshing…
+      } @else {
+        {{ updatedText() }}
+      }
+    </span>
+    <button type="button" class="btn btn-sm" [attr.aria-pressed]="!autoRefresh()" (click)="toggleAutoRefresh()">
+      <fu-icon [name]="autoRefresh() ? 'pause' : 'play'" />
+      {{ autoRefresh() ? 'Pause auto-refresh' : 'Resume auto-refresh' }}
+    </button>
+    <button type="button" class="btn btn-sm btn-icon" aria-label="Refresh now" title="Refresh now" (click)="reload()">
+      <fu-icon name="refresh" />
+    </button>
+    <button type="button" class="btn btn-sm btn-primary" [disabled]="syncing()" (click)="runSyncNow()">
+      <fu-icon name="zap" /> {{ syncing() ? 'Starting…' : 'Run sync now' }}
+    </button>
+  </div>
+</div>
+
+@if (data.loading() && !data.value()) {
+  <div class="stack-lg">
+    <div class="card pad"><fu-skeleton [rows]="3" /></div>
+    <fu-skeleton variant="tiles" [rows]="10" />
+    <div class="card"><fu-skeleton variant="table" [rows]="5" /></div>
+  </div>
+} @else if (data.error() && !data.value()) {
+  <div class="alert tone-danger" role="alert">
+    <fu-icon name="alert-circle" /> <span class="spacer">{{ data.error() }}</span>
+    <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+  </div>
+} @else if (data.value(); as m) {
+  @if (!autoRefresh()) {
+    <div class="alert tone-warning mb-16"><fu-icon name="pause" /> Auto-refresh is paused. Figures may be out of date.</div>
+  }
+  <div class="stack-lg">
+    <div id="mon-connection">
+      <fu-connection-card [probe]="m.probe" [mode]="m.mode" />
+    </div>
+
+    <fu-monitor-stats [overview]="m" [now]="now()" (jump)="jump($event)" />
+
+    <section class="card" id="mon-checkpoints" aria-labelledby="mon-checkpoints-title">
+      <header class="card-header">
+        <fu-icon name="database" class="muted" />
+        <h2 id="mon-checkpoints-title">Sync checkpoints</h2>
+        <span class="count-pill">{{ checkpointCount() }}</span>
+        <span class="desc">Each source resumes from its watermark and delta token, so an outage never causes gaps or duplicates.</span>
+      </header>
+      <div class="card-body flush">
+        <fu-checkpoints-table [checkpoints]="m.checkpoints" (changed)="reload(true)" />
+      </div>
+    </section>
+
+    <section class="card" id="mon-jobs" aria-labelledby="mon-jobs-title">
+      <header class="card-header">
+        <fu-icon name="clock" class="muted" />
+        <h2 id="mon-jobs-title">Background jobs</h2>
+        <span class="count-pill">{{ jobCount() }}</span>
+        <span class="desc">Leased to one host at a time; missed runs catch up according to each job’s misfire policy.</span>
+      </header>
+      <div class="card-body flush">
+        <fu-jobs-table [jobs]="m.jobs" (changed)="reload(true)" />
+      </div>
+    </section>
+
+    <div class="split">
+      <section class="card" aria-labelledby="mon-runs-title">
+        <header class="card-header">
+          <fu-icon name="activity" class="muted" />
+          <h2 id="mon-runs-title">Recent executions</h2>
+        </header>
+        <div class="card-body flush">
+          <fu-executions-table [executions]="m.recentExecutions" [jobNames]="jobNames()" />
+        </div>
+      </section>
+      <fu-hosts-card [hosts]="m.hosts" [serverTime]="m.serverTime" />
+    </div>
+  </div>
+}
+
+<div class="stack-lg mt-16">
+  <div id="mon-notifications"><fu-notification-queue /></div>
+  <div id="mon-errors"><fu-integration-errors [recent]="data.value()?.recentErrors" /></div>
+  <div id="mon-failed-messages"><fu-failed-messages /></div>
+</div>

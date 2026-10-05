@@ -1,0 +1,29 @@
+/* Summary on the left, KPI tiles on the right on wide screens; stacked below 1200px. */
+.top {
+  display: grid;
+  grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr);
+  gap: 16px;
+  align-items: start;
+}
+.top.single { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1200px) { .top { grid-template-columns: minmax(0, 1fr); } }
+
+.summary .card-header { gap: 8px; }
+.headline { font-size: 15.5px; font-weight: 600; line-height: 1.4; color: var(--text); margin: 0 0 6px; }
+.narrative { color: var(--text-2); margin: 0 0 10px; line-height: 1.55; }
+
+.points { list-style: none; margin: 4px -8px 0; padding: 0; display: flex; flex-direction: column; }
+.point {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px; border-radius: var(--radius-sm);
+  color: var(--text); text-decoration: none;
+}
+a.point:hover { background: var(--surface-hover); text-decoration: none; }
+.point .text { flex: 1 1 auto; min-width: 0; }
+.point .go { color: var(--subtle); }
+a.point:hover .go { color: var(--accent-text); }
+
+.summary .card-footer { gap: 8px; }
+
+.lead { margin-top: 16px; }
+.sections { margin-top: 16px; }

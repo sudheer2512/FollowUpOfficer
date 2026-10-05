@@ -1,0 +1,4 @@
+.tab-panel { margin-top: 16px; }
+.loading { display: flex; flex-direction: column; gap: 12px; }
+.loading .cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; margin-top: 8px; }
+@media (max-width: 1100px) { .loading .cols { grid-template-columns: minmax(0, 1fr); } }

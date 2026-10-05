@@ -105,7 +105,7 @@ export class ModalComponent implements OnDestroy {
     if (e.key !== 'Tab') return;
     const root = e.currentTarget as HTMLElement;
     const focusables = Array.from(
-      root.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+      root.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'),
     ).filter((el) => el.offsetParent !== null);
     if (!focusables.length) return;
     const first = focusables[0];

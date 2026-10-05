@@ -1,0 +1,104 @@
+@if (data.loading() && !data.value()) {
+  <div class="card pad"><fu-skeleton [rows]="8" /></div>
+} @else if (data.error()) {
+  <div class="alert tone-danger" role="alert">
+    <fu-icon name="alert-circle" /> <span class="spacer">{{ data.error() }}</span>
+    <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+  </div>
+} @else {
+  @if (active().length) {
+    <div class="alert tone-warning mb-12" role="status">
+      <fu-icon name="alert-triangle" />
+      <span class="spacer">Faults in force: <strong>{{ active().join(' · ') }}</strong>. Real syncs are affected until you clear them.</span>
+      <button type="button" class="btn btn-sm" [disabled]="saving()" (click)="restore()">Clear all faults</button>
+    </div>
+  } @else {
+    <div class="alert tone-good mb-12" role="status"><fu-icon name="check-circle" /> No faults injected — the emulated tenant behaves like a healthy Microsoft 365.</div>
+  }
+
+  <section class="card">
+    <header class="card-header wrap">
+      <fu-icon name="zap" class="muted" />
+      <h2>Fault injection</h2>
+      <span class="spacer"></span>
+      <a routerLink="/admin/monitor" class="small">Watch it in the Integration monitor <fu-icon name="arrow-right" [size]="12" style="display:inline-flex;vertical-align:-1px" /></a>
+    </header>
+
+    <div class="fault">
+      <div class="control">
+        <label class="switch"><input type="checkbox" [checked]="draft().outage" (change)="setOutage($event)" /> <span class="name">Outage</span></label>
+        <span class="xsmall muted">Graph calls fail as if Microsoft 365 were down.</span>
+      </div>
+      <p class="demo">
+        <span class="label">Demonstrates</span>
+        Sync jobs fail and retry with exponential backoff. When the outage ends they resume from the stored checkpoint —
+        no duplicates and no gaps.
+      </p>
+    </div>
+
+    <div class="fault">
+      <div class="control">
+        <label for="sim-throttle" class="name">Throttle</label>
+        <div class="slider">
+          <input id="sim-throttle" type="range" min="0" max="100" step="5" [value]="draft().throttlePercent" (input)="setThrottle($event)" />
+          <span class="pct num">{{ draft().throttlePercent }}%</span>
+        </div>
+        <span class="xsmall muted">Share of calls answered with 429 Too Many Requests.</span>
+      </div>
+      <p class="demo">
+        <span class="label">Demonstrates</span>
+        Graph returns 429 with a Retry-After header; the client waits as instructed and backs off, and the monitor counts rate-limit events.
+      </p>
+    </div>
+
+    <div class="fault">
+      <div class="control">
+        <label class="switch"><input type="checkbox" [checked]="draft().authFailure" (change)="setAuthFailure($event)" /> <span class="name">Authentication failure</span></label>
+        <span class="xsmall muted">Calls are rejected as unauthenticated (401).</span>
+      </div>
+      <p class="demo">
+        <span class="label">Demonstrates</span>
+        Authentication errors surface in the integration monitor (connection card, auth problems) and syncing pauses until the problem is fixed.
+      </p>
+    </div>
+
+    <div class="fault">
+      <div class="control">
+        <label for="sim-latency" class="name">Latency</label>
+        <div class="row">
+          <input id="sim-latency" class="input latency num" type="number" min="0" [max]="maxLatency" step="100" [value]="draft().latencyMs" (change)="setLatency($event)" />
+          <span class="small muted">ms per call</span>
+        </div>
+      </div>
+      <p class="demo">
+        <span class="label">Demonstrates</span>
+        Slow responses and timeouts: long-running jobs keep their lease while working, and a host that stalls past its lease is abandoned and taken over.
+      </p>
+    </div>
+
+    <footer class="card-footer">
+      @if (dirty()) {
+        <span class="chip sm tone-warning">Not applied yet</span>
+      }
+      <span class="spacer"></span>
+      <button type="button" class="btn" [disabled]="!dirty() || saving()" (click)="discard()">Discard</button>
+      <button type="button" class="btn btn-primary" [disabled]="!dirty() || saving()" (click)="apply()">{{ saving() ? 'Applying…' : 'Apply faults' }}</button>
+    </footer>
+  </section>
+
+  <section class="card mt-16">
+    <div class="fault">
+      <div class="control">
+        <span class="name">Delta tokens</span>
+        <button type="button" class="btn btn-danger" [disabled]="invalidating()" (click)="invalidate()">
+          <fu-icon name="rotate" /> {{ invalidating() ? 'Invalidating…' : 'Invalidate delta tokens' }}
+        </button>
+      </div>
+      <p class="demo">
+        <span class="label">Demonstrates</span>
+        The next sync receives 410 Gone and performs a resync from its watermark instead of a delta query. It is recorded as a resync event and
+        creates no duplicate messages.
+      </p>
+    </div>
+  </section>
+}

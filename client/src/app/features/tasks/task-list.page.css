@@ -1,0 +1,15 @@
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.search { width: 280px; max-width: 100%; }
+.sort { width: auto; min-width: 140px; }
+.btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
+.chips-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.layout.with-panel { grid-template-columns: 300px minmax(0, 1fr); }
+.filters { position: sticky; top: calc(var(--topbar-h) + 12px); max-height: calc(100vh - var(--topbar-h) - 24px); overflow-y: auto; }
+.table-host { transition: opacity 0.15s; }
+.table-host.stale { opacity: 0.55; }
+.card-footer fu-paginator { flex: 1 1 auto; }
+@media (max-width: 760px) {
+  .search { width: 100%; order: 10; }
+  .segmented { max-width: 100%; }
+}
