@@ -73,10 +73,10 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        g.MapGet("/notifications", (string? status, AdminService a, CancellationToken ct) => a.NotificationsAsync(status, ct));
+        monitor.MapGet("/notifications", (string? status, AdminService a, CancellationToken ct) => a.NotificationsAsync(status, ct));
         g.MapPost("/notifications/retry", async (IdsRequest r, AdminService a, CancellationToken ct) =>
             new RetryResult(await a.RetryNotificationsAsync(r.Ids ?? [], ct)));
-        g.MapGet("/messages/failed", (AdminService a, CancellationToken ct) => a.FailedMessagesAsync(ct));
+        monitor.MapGet("/messages/failed", (AdminService a, CancellationToken ct) => a.FailedMessagesAsync(ct));
 
         g.MapGet("/audit", (Guid? taskId, string? entityType, string? action, DateOnly? from, DateOnly? to, int? page, int? pageSize, TaskQueryService q,
                 CancellationToken ct) => q.AuditAsync(new AuditQuery(taskId, entityType, action, from, to, page ?? 1, pageSize ?? 100), ct));

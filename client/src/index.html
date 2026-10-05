@@ -8,13 +8,7 @@
   <meta name="description" content="FollowUp Officer — CEO delegated tasks, follow-up and executive monitoring.">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <script>
-    // Apply a stored theme before first paint to avoid a light flash in dark mode.
-    try {
-      var t = localStorage.getItem('fu.theme');
-      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-    } catch (e) {}
-  </script>
+  <script src="theme-init.js"></script>
 </head>
 <body>
   <fu-root>

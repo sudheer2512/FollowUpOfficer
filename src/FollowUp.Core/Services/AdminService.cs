@@ -204,7 +204,7 @@ public sealed class AdminService(
 
     public async Task<List<NotificationRow>> NotificationsAsync(string? status, CancellationToken ct, int take = 200)
     {
-        RequireAdmin();
+        RequireMonitor();
         var q = db.Notifications.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(status) && !status.Equals("All", StringComparison.OrdinalIgnoreCase))
         {
@@ -242,7 +242,7 @@ public sealed class AdminService(
 
     public async Task<List<MessageDto>> FailedMessagesAsync(CancellationToken ct)
     {
-        RequireAdmin();
+        RequireMonitor();
         return [.. (await communications.ListAsync(new MessageFilter(null, null, MessageProcessingStatus.Failed, null, null, null, 1, 200), ct)).Items];
     }
 
@@ -257,7 +257,7 @@ public sealed class AdminService(
 
     public async Task<AuditVerifyResult> VerifyAuditAsync(Guid taskId, CancellationToken ct)
     {
-        RequireAdmin();
+        RequireMonitor();
         var broken = await audit.VerifyTaskChainAsync(taskId, ct);
         return new AuditVerifyResult(broken is null, broken?.Id);
     }
