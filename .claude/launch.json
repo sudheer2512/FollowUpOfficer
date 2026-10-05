@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "followup-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/FollowUp.Api", "--no-launch-profile", "--", "--environment", "Development"],
+      "port": 5860
+    },
+    {
+      "name": "followup-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client", "start"],
+      "port": 4860
+    }
+  ]
+}
