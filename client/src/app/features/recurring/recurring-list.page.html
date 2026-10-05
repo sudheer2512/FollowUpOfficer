@@ -1,0 +1,155 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Recurring tasks</h1>
+      <div class="subtitle">Returns, reviews and renewals that create themselves on schedule — and are followed up automatically.</div>
+    </div>
+    <div class="actions">
+      <a class="btn btn-primary" routerLink="/recurring/new"><fu-icon name="plus" /> New recurring task</a>
+    </div>
+  </div>
+
+  @if (data.loading() && !data.value()) {
+    <fu-skeleton variant="tiles" [rows]="4" />
+    <section class="card mt-16"><fu-skeleton variant="table" [rows]="6" /></section>
+  } @else if (data.error() && !data.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <div class="grow">Couldn't load the recurring tasks. {{ data.error() }}</div>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else {
+    <div class="kpi-grid">
+      <div class="kpi static tone-good" [class.zero]="!stats().active">
+        <span class="kpi-label">Active series</span>
+        <span class="kpi-value">{{ stats().active }}</span>
+        <span class="kpi-hint">creating tasks on schedule</span>
+      </div>
+      <div class="kpi static" [class.tone-warning]="stats().paused > 0" [class.zero]="!stats().paused">
+        <span class="kpi-label">Paused</span>
+        <span class="kpi-value">{{ stats().paused }}</span>
+        <span class="kpi-hint">no tasks while paused</span>
+      </div>
+      <div class="kpi static" [class.tone-danger]="stats().missed > 0" [class.zero]="!stats().missed">
+        <span class="kpi-label">Missed occurrences</span>
+        <span class="kpi-value">{{ stats().missed }}</span>
+        <span class="kpi-hint">across the series listed</span>
+      </div>
+      <div class="kpi static" [class]="'kpi static tone-' + stats().averageTone" [class.zero]="stats().average === null">
+        <span class="kpi-label">Average compliance</span>
+        <span class="kpi-value">{{ stats().average === null ? '–' : stats().average + '%' }}</span>
+        <span class="kpi-hint">completed on time</span>
+      </div>
+    </div>
+
+    <section class="card mt-16">
+      <header class="card-header toolbar">
+        <div class="input-with-icon search">
+          <fu-icon name="search" />
+          <input
+            class="input"
+            type="search"
+            placeholder="Search title, code, person, team…"
+            aria-label="Search recurring tasks"
+            [value]="search()"
+            (input)="search.set($any($event.target).value)"
+          />
+        </div>
+        <div class="segmented" role="group" aria-label="Filter by state">
+          @for (s of states(); track s) {
+            <button type="button" [class.active]="stateFilter() === s" [attr.aria-pressed]="stateFilter() === s" (click)="stateFilter.set(s)">
+              {{ s }} <span class="count">{{ counts()[s] }}</span>
+            </button>
+          }
+        </div>
+        <span class="spacer"></span>
+        <label class="switch small">
+          <input type="checkbox" [checked]="showEnded()" (change)="setShowEnded($any($event.target).checked)" />
+          Show ended
+        </label>
+      </header>
+
+      @if (!rows().length) {
+        @if (counts().All === 0) {
+          <fu-empty icon="repeat" title="No recurring tasks yet" message="Set up monthly returns, weekly reviews or licence renewals once — FollowUp Officer creates and chases them.">
+            <a class="btn btn-primary btn-sm mt-8" routerLink="/recurring/new"><fu-icon name="plus" /> New recurring task</a>
+          </fu-empty>
+        } @else {
+          <fu-empty icon="filter" title="Nothing matches" message="Try another search or state.">
+            <button type="button" class="btn btn-sm mt-8" (click)="clearFilters()">Clear filters</button>
+          </fu-empty>
+        }
+      } @else {
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Recurring task</th>
+                <th>Schedule</th>
+                <th>Responsible</th>
+                <th>Next occurrence</th>
+                <th>State</th>
+                <th class="num">Compliance</th>
+                <th class="num">Missed</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of rows(); track r.d.id) {
+                <tr class="row-link" (click)="openRow(r.d, $event)">
+                  <td class="title-cell">
+                    <a class="ttl" [routerLink]="['/recurring', r.d.id]">{{ r.d.titleTemplate }}</a>
+                    <div class="xsmall muted">
+                      <span class="mono">{{ r.d.code }}</span>
+                      @if (r.d.project?.name) {
+                        · {{ r.d.project?.name }}
+                      }
+                    </div>
+                  </td>
+                  <td class="sched">
+                    <div class="small">{{ r.d.ruleText }}</div>
+                    <div class="xsmall muted">{{ r.d.dueText }}</div>
+                  </td>
+                  <td>
+                    <fu-person [person]="r.d.primaryAssignee" [emptyText]="r.d.team?.name ?? 'Unassigned'" />
+                    @if (r.d.primaryAssignee && r.d.team?.name) {
+                      <div class="xsmall muted team">{{ r.d.team?.name }}</div>
+                    }
+                  </td>
+                  <td class="nowrap">
+                    @if (r.d.state === 'Paused') {
+                      <span class="small">Paused</span>
+                      @if (r.d.resumeOn) {
+                        <div class="xsmall muted">resumes {{ r.d.resumeOn | dateOnly: 'short' }}</div>
+                      }
+                    } @else if (r.d.state === 'Active' && r.d.nextOccurrenceAt) {
+                      <div class="small">{{ r.d.nextOccurrenceAt | dateTime: 'short' }}</div>
+                      <div class="xsmall muted">{{ r.d.nextOccurrenceAt | ago }}</div>
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  </td>
+                  <td><span class="badge tone-{{ r.stateTone }}">{{ r.d.state }}</span></td>
+                  <td class="num">
+                    @if (r.hasHistory) {
+                      <span class="comp">
+                        <span class="progress {{ r.complianceTone }}" role="meter" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="r.compliance" aria-label="Compliance">
+                          <span [style.width.%]="r.bar"></span>
+                        </span>
+                        <span class="small">{{ r.compliance }}%</span>
+                      </span>
+                    } @else {
+                      <span class="xsmall muted">No history yet</span>
+                    }
+                  </td>
+                  <td class="num">
+                    <span [class.text-danger]="r.d.missedCount > 0" [class.strong]="r.d.missedCount > 0">{{ r.d.missedCount }}</span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</div>

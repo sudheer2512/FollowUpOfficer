@@ -1,0 +1,96 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>{{ isEdit() ? 'Edit recurring task' : 'New recurring task' }}</h1>
+      <div class="subtitle">
+        @if (isEdit() && existing.value(); as d) {
+          <span class="mono">{{ d.code }}</span> · {{ d.ruleText }}
+        } @else {
+          Define the schedule once — every occurrence is created, assigned and followed up automatically.
+        }
+      </div>
+    </div>
+    <div class="actions">
+      <a class="btn" [routerLink]="cancelLink()">Cancel</a>
+      <button type="button" class="btn btn-primary" [disabled]="busy() || (isEdit() && !existing.value())" (click)="save()">
+        <fu-icon name="check" />
+        {{ busy() ? 'Saving…' : isEdit() ? 'Save changes' : 'Create recurring task' }}
+      </button>
+    </div>
+  </div>
+
+  @if (isEdit() && existing.loading() && !existing.value()) {
+    <fu-skeleton variant="cards" [rows]="3" />
+  } @else if (isEdit() && existing.error() && !existing.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <div class="grow">Couldn't load this recurring task. {{ existing.error() }}</div>
+      <button type="button" class="btn btn-sm" (click)="load()">Retry</button>
+    </div>
+  } @else {
+    @if (problems().length) {
+      <div class="alert tone-warning mb-12" role="alert">
+        <fu-icon name="alert-triangle" />
+        <ul class="problems">
+          @for (p of problems(); track p) {
+            <li>{{ p }}</li>
+          }
+        </ul>
+      </div>
+    }
+
+    <fu-recurring-form [form]="form" />
+
+    <div class="form-actions mt-16">
+      <a class="btn" [routerLink]="cancelLink()">Cancel</a>
+      <button type="button" class="btn btn-primary" [disabled]="busy() || (isEdit() && !existing.value())" (click)="save()">
+        {{ busy() ? 'Saving…' : isEdit() ? 'Save changes' : 'Create recurring task' }}
+      </button>
+    </div>
+  }
+</div>
+
+@if (scopeOpen()) {
+  <fu-modal title="Apply the changes to…" subtitle="Recurring tasks keep their history; choose how far the change reaches." (closed)="scopeOpen.set(false)">
+    <form id="rf-scope-form" class="scopes" [formGroup]="scopeForm" (ngSubmit)="confirmScope()" novalidate>
+      @for (o of scopeOptions; track o.value) {
+        @let unavailable = o.value === 'ThisInstance' && !openList().length;
+        <label class="scope" [class.on]="scopeValue().scope === o.value" [class.disabled]="unavailable">
+          <input type="radio" name="scope" formControlName="scope" [value]="o.value" [attr.disabled]="unavailable ? '' : null" />
+          <span class="scope-body">
+            <span class="strong">{{ o.label }}</span>
+            <span class="desc small muted">{{ o.description }}</span>
+            @if (o.value === 'ThisInstance') {
+              @if (!openList().length) {
+                <span class="desc xsmall muted">{{ openInstances.loading() ? 'Loading occurrences…' : 'No generated task is open right now.' }}</span>
+              } @else if (scopeValue().scope === 'ThisInstance') {
+                <select class="select scope-extra" formControlName="instanceId" aria-label="Occurrence to change">
+                  @for (i of openList(); track i.id) {
+                    <option [ngValue]="i.id">{{ instanceLabel(i) }}</option>
+                  }
+                </select>
+              }
+            }
+            @if (o.value === 'ThisAndFuture' && scopeValue().scope === 'ThisAndFuture') {
+              <span class="field scope-extra">
+                <label for="rf-scope-from">From</label>
+                <fu-date-input inputId="rf-scope-from" formControlName="fromDate" />
+              </span>
+            }
+          </span>
+        </label>
+      }
+    </form>
+    <ng-container modal-footer>
+      <button type="button" class="btn" (click)="scopeOpen.set(false)">Cancel</button>
+      <button
+        type="submit"
+        form="rf-scope-form"
+        class="btn btn-primary"
+        [disabled]="busy() || (scopeValue().scope === 'ThisInstance' && !scopeValue().instanceId)"
+      >
+        {{ busy() ? 'Saving…' : 'Apply changes' }}
+      </button>
+    </ng-container>
+  </fu-modal>
+}

@@ -1,0 +1,123 @@
+<section class="card">
+  <div class="filters">
+    <div class="input-with-icon q">
+      <fu-icon name="search" [size]="15" />
+      <input
+        class="input"
+        type="search"
+        [placeholder]="mode() === 'failed' ? 'Search failed messages…' : 'Search sender, subject or text…'"
+        aria-label="Search messages"
+        [value]="textInput()"
+        (input)="textInput.set($any($event.target).value)"
+      />
+    </div>
+    @if (mode() === 'all') {
+      <select class="select f-sel" aria-label="Channel" [value]="channel()" (change)="channel.set($any($event.target).value)">
+        <option value="">All channels</option>
+        @for (c of channels; track c) {
+          <option [value]="c">{{ c | humanize }}</option>
+        }
+      </select>
+      <select class="select f-sel" aria-label="Processing status" [value]="status()" (change)="status.set($any($event.target).value)">
+        <option value="">Any status</option>
+        @for (s of statuses; track s) {
+          <option [value]="s">{{ s | humanize }}</option>
+        }
+      </select>
+      <label class="date-f">
+        <span class="xsmall muted">From</span>
+        <input class="input input-sm" type="date" aria-label="Sent from" [value]="from()" [attr.max]="to() || null" (change)="from.set($any($event.target).value)" />
+      </label>
+      <label class="date-f">
+        <span class="xsmall muted">To</span>
+        <input class="input input-sm" type="date" aria-label="Sent to" [value]="to()" [attr.min]="from() || null" (change)="to.set($any($event.target).value)" />
+      </label>
+      <label class="switch small"><input type="checkbox" [checked]="unlinked()" (change)="unlinked.set($any($event.target).checked)" /> Unlinked only</label>
+    }
+    @if (hasFilters()) {
+      <button type="button" class="btn btn-sm btn-ghost" (click)="clearFilters()">Clear</button>
+    }
+  </div>
+
+  @if (data.loading() && !data.value()) {
+    <div class="card-body"><fu-skeleton variant="table" [rows]="8" /></div>
+  } @else if (data.error() && !data.value()) {
+    <div class="card-body">
+      <div class="alert tone-danger" role="alert">
+        <fu-icon name="alert-circle" />
+        <span class="spacer">{{ data.error() }}</span>
+        <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+      </div>
+    </div>
+  } @else if (!items().length) {
+    @if (mode() === 'failed') {
+      <fu-empty icon="check-circle" title="No failed messages" message="Every imported message was analysed successfully." />
+    } @else {
+      <fu-empty icon="mail" [title]="hasFilters() ? 'No matching messages' : 'No messages yet'" [message]="hasFilters() ? 'Try other filters.' : 'Emails and Teams messages appear here as soon as they are imported.'" />
+    }
+  } @else {
+    <div class="table-wrap" [class.refreshing]="data.loading()">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="ch" aria-label="Channel"></th>
+            <th>From</th>
+            <th>Message</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Tasks</th>
+            <th>Sent</th>
+            @if (mode() === 'failed') {
+              <th class="actions"><span class="sr-only">Actions</span></th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of items(); track m.id) {
+            <tr class="clickable" tabindex="0" [attr.aria-label]="'Message from ' + sender(m) + ': ' + headline(m)" (click)="openRow(m, $event)" (keydown.enter)="openRow(m, $event)">
+              <td class="ch"><span class="ch-icon" [attr.title]="m.channel | humanize"><fu-icon [name]="icon(m.channel)" [size]="15" /></span></td>
+              <td class="from">
+                <div class="truncate strong">{{ sender(m) }}</div>
+                @if (m.isSystemGenerated) {
+                  <span class="chip sm outline">System</span>
+                }
+              </td>
+              <td class="msg">
+                <div class="subj truncate">{{ headline(m) }}</div>
+                <div class="prev clamp-2">{{ preview(m) }}</div>
+              </td>
+              <td>
+                @if (m.category && m.category !== 'Unclassified') {
+                  <span class="chip sm tone-{{ catTone(m.category) }}">{{ m.category | humanize }}</span>
+                } @else {
+                  <span class="muted small">—</span>
+                }
+              </td>
+              <td><span class="badge tone-{{ procTone(m.processingStatus) }}">{{ m.processingStatus | humanize }}</span></td>
+              <td class="links">
+                @for (l of links(m); track l.linkId) {
+                  <span class="chip sm link-chip" [class.suggested]="l.status === 'Suggested'" [attr.title]="l.number + ' — ' + l.title + (l.status === 'Suggested' ? ' (suggested)' : '')">{{ l.number }}</span>
+                } @empty {
+                  <span class="muted small">—</span>
+                }
+              </td>
+              <td class="nowrap small muted" [attr.title]="m.sentAt | dateTime">{{ m.sentAt | ago }}</td>
+              @if (mode() === 'failed') {
+                <td class="actions">
+                  <button type="button" class="btn btn-sm" [disabled]="reprocessing().has(m.id)" (click)="reprocess(m, $event)" (keydown.enter)="$event.stopPropagation()">
+                    <fu-icon name="refresh" [size]="14" /> {{ reprocessing().has(m.id) ? 'Queuing…' : 'Reprocess' }}
+                  </button>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (total() > pageSize) {
+      <div class="card-footer">
+        <fu-paginator class="spacer" [page]="page()" [pageSize]="pageSize" [total]="total()" (pageChange)="page.set($event)" />
+      </div>
+    }
+  }
+</section>

@@ -1,0 +1,33 @@
+/* Shared two-pane layout for the simulator's Mail, Chats and Channels tabs. */
+:host { display: block; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
+.field.inline { min-width: 240px; }
+.panes { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.list-pane { max-height: 640px; overflow-y: auto; }
+.read-pane { min-height: 360px; display: flex; flex-direction: column; }
+.list-row.item { align-items: flex-start; }
+.list-row.on { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.subject { display: block; font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.preview { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.headers { font-size: 13px; }
+.message-body { font-size: 13.5px; line-height: 1.55; }
+.thread { flex: 1 1 auto; overflow-y: auto; max-height: 460px; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+.msg { display: flex; gap: 10px; align-items: flex-start; }
+.msg .bubble { min-width: 0; flex: 1; }
+.msg .meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+.msg .meta .name { font-weight: 600; color: var(--text); }
+.msg .text { margin-top: 2px; }
+.composer { border-top: 1px solid var(--border); padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.composer .row .select { width: auto; min-width: 200px; }
+.composer .textarea { min-height: 64px; }
+.section-title.team { padding: 12px 16px 4px; margin: 0; }
+.titles-col { min-width: 0; }
+.post { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--surface); }
+.post.replying { border-color: var(--accent); }
+.replies { margin: 10px 0 0 36px; padding-left: 12px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.reply { margin: 8px 0 0 36px; }
+.replying-to { padding: 6px 10px; align-items: center; }
+@media (max-width: 900px) {
+  .panes { grid-template-columns: minmax(0, 1fr); }
+  .list-pane { max-height: 320px; }
+}

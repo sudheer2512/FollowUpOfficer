@@ -1,0 +1,157 @@
+<fu-drawer [title]="title()" [subtitle]="subtitle()" width="min(660px, 100vw)" (closed)="closed.emit()">
+  <ng-container drawer-actions>
+    @if (message()?.webUrl; as url) {
+      <a class="btn btn-sm btn-ghost" [href]="url" target="_blank" rel="noopener noreferrer" aria-label="Open in Outlook or Teams" title="Open in Outlook or Teams">
+        <fu-icon name="external" [size]="14" />
+      </a>
+    }
+    @if (message()) {
+      <button type="button" class="btn btn-sm" [disabled]="reprocessing()" (click)="reprocess()">
+        <fu-icon name="refresh" [size]="14" /> {{ reprocessing() ? 'Queuing…' : 'Reprocess' }}
+      </button>
+    }
+  </ng-container>
+
+  @if (data.loading() && !message()) {
+    <div class="stack-lg">
+      <fu-skeleton [rows]="4" />
+      <fu-skeleton [rows]="8" />
+    </div>
+  } @else if (data.error() && !message()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <span class="spacer">{{ data.error() }}</span>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else if (message(); as m) {
+    <div class="stack-lg">
+      <section>
+        <div class="row wrap mb-12">
+          <span class="chip sm"><fu-icon [name]="channelIcon(m.channel)" [size]="12" /> {{ m.channel | humanize }}</span>
+          <span class="chip sm">{{ m.direction | humanize }}</span>
+          <span class="badge tone-{{ procTone(m.processingStatus) }}">{{ m.processingStatus | humanize }}</span>
+          @if (m.isSystemGenerated) {
+            <span class="chip sm outline" title="Sent by FollowUp Officer (reminder, notification…)">System generated</span>
+          }
+        </div>
+        <dl class="kv">
+          <dt>From</dt>
+          <dd>
+            @if (m.sender) {
+              <fu-person [person]="m.sender" [showTitle]="true" />
+              @if (m.senderAddress) {
+                <div class="xsmall muted">{{ m.senderAddress }}</div>
+              }
+            } @else {
+              {{ m.senderName || m.senderAddress || 'Unknown sender' }}
+              @if (m.senderName && m.senderAddress) {
+                <span class="muted small">&lt;{{ m.senderAddress }}&gt;</span>
+              }
+            }
+          </dd>
+          @for (g of recipientGroups(); track g.kind) {
+            <dt>{{ g.kind }}</dt>
+            <dd class="parties small">
+              @for (p of g.parties; track $index) {
+                <span>{{ party(p) }}</span>
+              }
+            </dd>
+          } @empty {
+            <dt>Recipients</dt>
+            <dd class="muted">—</dd>
+          }
+          <dt>Sent</dt>
+          <dd>{{ m.sentAt | dateTime }}</dd>
+          <dt>Imported</dt>
+          <dd>{{ m.importedAt | dateTime }}</dd>
+          <dt>Source key</dt>
+          <dd class="mono small muted">{{ m.sourceKey || '—' }}</dd>
+        </dl>
+      </section>
+
+      <section>
+        <h3 class="section-title">Message</h3>
+        @if (m.subject) {
+          <div class="strong mb-8">{{ m.subject }}</div>
+        }
+        <div class="body pre">{{ m.body || '(empty message)' }}</div>
+      </section>
+
+      <section>
+        <h3 class="section-title">Analysis</h3>
+        <div class="row wrap mb-8">
+          <span class="chip tone-{{ catTone(m.category) }}">{{ m.category | humanize }}</span>
+          @if (m.categoryConfidence !== null && m.categoryConfidence !== undefined) {
+            <span class="small muted">{{ m.categoryConfidence | confidence }} confidence</span>
+          }
+        </div>
+        @if (m.analysisSummary) {
+          <p class="summary small"><fu-icon name="sparkles" [size]="14" /> <span>{{ m.analysisSummary }}</span></p>
+        }
+
+        <h4 class="section-title mt-12">Extracted facts</h4>
+        @if (visibleFacts(); as f) {
+          <dl class="kv">
+            @if (f.suggestedStatus) {
+              <dt>Suggested status</dt>
+              <dd><fu-status [status]="f.suggestedStatus" /></dd>
+            }
+            @if (f.blocker) {
+              <dt>Blocker</dt>
+              <dd class="text-danger">{{ f.blocker }}</dd>
+            }
+            @if (f.commitmentDate || f.commitmentText) {
+              <dt>Commitment</dt>
+              <dd>
+                @if (f.commitmentDate) {
+                  <span class="strong">{{ f.commitmentDate | dateOnly: 'weekday' }}</span>
+                }
+                @if (f.commitmentText) {
+                  <div class="small muted"><q>{{ f.commitmentText }}</q></div>
+                }
+              </dd>
+            }
+            @if (f.proposedDueDate) {
+              <dt>Proposed due date</dt>
+              <dd>{{ f.proposedDueDate | dateOnly: 'weekday' }}</dd>
+            }
+            @if (f.progressPercent !== null && f.progressPercent !== undefined) {
+              <dt>Progress</dt>
+              <dd>
+                <div class="row">
+                  <div class="progress" style="width: 120px"><span [style.width.%]="f.progressPercent"></span></div>
+                  <span class="small num">{{ f.progressPercent }}%</span>
+                </div>
+              </dd>
+            }
+            @if (f.urgent) {
+              <dt>Urgency</dt>
+              <dd><span class="chip sm tone-danger">Urgent</span></dd>
+            }
+            @if (factSignals().length) {
+              <dt>Signals</dt>
+              <dd class="row wrap gap-4">
+                @for (s of factSignals(); track s) {
+                  <span class="chip sm outline">{{ s }}</span>
+                }
+              </dd>
+            }
+          </dl>
+        } @else {
+          <p class="small muted">No facts extracted.</p>
+        }
+      </section>
+
+      <section>
+        <h3 class="section-title">Linked tasks</h3>
+        <div class="links">
+          @for (l of links(); track l.linkId) {
+            <fu-link-suggestion [link]="l" [busy]="busyLinks().has(l.linkId)" (confirmed)="decide($event, 'confirm')" (rejected)="decide($event, 'reject')" />
+          } @empty {
+            <fu-empty icon="link" title="Not linked to a task" message="Reprocess the message, or link it from the task page." [compact]="true" />
+          }
+        </div>
+      </section>
+    </div>
+  }
+</fu-drawer>

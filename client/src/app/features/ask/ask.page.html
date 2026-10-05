@@ -1,0 +1,103 @@
+<div class="page ask">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Ask</h1>
+      <div class="subtitle">Ask about delegated work in plain English. Every answer links to the tasks behind it.</div>
+    </div>
+    <div class="actions">
+      @if (history().length) {
+        <button type="button" class="btn btn-sm btn-ghost" [disabled]="pending()" (click)="clear()">
+          <fu-icon name="trash" [size]="14" /> Clear
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="sr-only" role="status" aria-live="polite">{{ announcement() }}</div>
+
+  <div class="conversation" [attr.aria-busy]="pending()">
+    @for (turn of history(); track turn.id) {
+      <article class="turn" [id]="'ask-turn-' + turn.id">
+        <div class="question">
+          <div class="bubble">{{ turn.question }}</div>
+          <time class="xsmall subtle" [attr.datetime]="turn.askedAt" [attr.title]="turn.askedAt | dateTime">{{ turn.askedAt | ago }}</time>
+        </div>
+
+        @switch (turn.state) {
+          @case ('pending') {
+            <section class="card pending" aria-label="Working on an answer">
+              <div class="card-body">
+                <div class="row gap-12">
+                  <span class="ai-mark" aria-hidden="true"><fu-icon name="sparkles" [size]="16" /></span>
+                  <span class="small muted">Looking through tasks, commitments and replies…</span>
+                  <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                </div>
+                <fu-skeleton class="mt-12" variant="lines" [rows]="3" />
+              </div>
+            </section>
+          }
+          @case ('error') {
+            <div class="alert tone-danger" role="alert">
+              <fu-icon name="alert-circle" />
+              <span class="spacer">{{ turn.error || 'The question could not be answered.' }}</span>
+              <button type="button" class="btn btn-sm" [disabled]="pending()" (click)="retry(turn)">Retry</button>
+            </div>
+          }
+          @default {
+            @if (turn.answer; as answer) {
+              <fu-ask-answer [answer]="answer" (changed)="refresh(turn)" />
+            }
+          }
+        }
+      </article>
+    } @empty {
+      <section class="card intro">
+        <span class="ai-mark lg" aria-hidden="true"><fu-icon name="sparkles" [size]="22" /></span>
+        <h2>What would you like to know?</h2>
+        <p class="muted">
+          Ask about critical work, missed promises, silent teams, overdue tasks, recurring activities or project blockers.
+          Answers are drawn from tasks, commitments and email and Teams replies.
+        </p>
+        <div class="suggestions" role="group" aria-label="Suggested questions">
+          @for (s of suggestions; track s) {
+            <button type="button" class="suggestion" [disabled]="pending()" (click)="ask(s)">
+              <fu-icon name="corner-up-right" [size]="14" class="muted" />
+              <span>{{ s }}</span>
+            </button>
+          }
+        </div>
+      </section>
+    }
+  </div>
+
+  <div class="composer">
+    @if (history().length) {
+      <div class="chips" role="group" aria-label="Suggested questions">
+        @for (s of suggestions; track s) {
+          <button type="button" class="chip selectable" [disabled]="pending()" (click)="ask(s)">{{ s }}</button>
+        }
+      </div>
+    }
+    <form class="ask-form" (submit)="submit($event)">
+      <label for="ask-input" class="sr-only">Your question</label>
+      <div class="input-with-icon grow">
+        <fu-icon name="sparkles" />
+        <input
+          #askInput
+          id="ask-input"
+          class="input"
+          type="text"
+          autocomplete="off"
+          maxlength="500"
+          placeholder="Ask a question, e.g. What has Development not responded to?"
+          [value]="draft()"
+          [disabled]="pending()"
+          (input)="draft.set($any($event.target).value)"
+        />
+      </div>
+      <button type="submit" class="btn btn-primary" [disabled]="pending() || !draft().trim()">
+        <fu-icon name="send" [size]="14" /> {{ pending() ? 'Thinking…' : 'Ask' }}
+      </button>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,97 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Commitments</h1>
+      <div class="subtitle">Promises made in email, Teams, meetings and comments — and whether they were kept</div>
+    </div>
+    <div class="actions">
+      <label class="switch">
+        <input type="checkbox" [checked]="madeToMe()" (change)="setToMe($event)" />
+        Made to me
+      </label>
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh commitments" title="Refresh" [disabled]="loading()" (click)="reload()">
+        <fu-icon name="refresh" />
+      </button>
+    </div>
+  </div>
+
+  <section class="card callout" [class.has-missed]="missedToMeCount() > 0" aria-labelledby="missed-to-me-q">
+    <span class="callout-ic" aria-hidden="true"><fu-icon name="flag" [size]="18" /></span>
+    <div class="callout-main">
+      <div class="q" id="missed-to-me-q">Which commitments made to me have been missed?</div>
+      <div class="a">
+        @if (missedToMe.loading() && !missedToMe.value()) {
+          <span class="muted">Checking…</span>
+        } @else if (missedToMe.error() && !missedToMe.value()) {
+          <span class="muted">Couldn't check right now.</span>
+        } @else if (missedToMeCount() > 0) {
+          <strong class="text-danger">{{ missedToMeCount() }}</strong>
+          commitment{{ missedToMeCount() === 1 ? ' made to you was' : 's made to you were' }} missed.
+          @if (latestMissedToMe(); as last) {
+            <span class="muted">
+              Latest: {{ last.person?.name ?? 'Someone' }} promised
+              <span class="task-number">{{ last.taskNumber }}</span>
+              for {{ last.commitmentDate | dateOnly: 'weekday' }}.
+            </span>
+          }
+        } @else {
+          <span class="text-good">None</span> — every promise made to you has been kept so far.
+        }
+      </div>
+    </div>
+    @if (missedToMeCount() > 0 && !showingMissedToMe()) {
+      <button type="button" class="btn btn-sm" (click)="showMissedToMe()">Show them <fu-icon name="arrow-right" [size]="14" /></button>
+    }
+  </section>
+
+  @if (counts(); as c) {
+    <div class="stats" role="group" aria-label="Commitment summary">
+      <button type="button" class="kpi tone-accent" [class.zero]="!c.open" [class.on]="activeTab() === 'open'" (click)="selectTab('open')">
+        <span class="kpi-label">Open</span>
+        <span class="kpi-value">{{ c.open }}</span>
+      </button>
+      <button type="button" class="kpi tone-warning" [class.zero]="!c.dueSoon" [class.on]="activeTab() === 'due'" (click)="selectTab('due')">
+        <span class="kpi-label">Due in the next 7 days</span>
+        <span class="kpi-value">{{ c.dueSoon }}</span>
+      </button>
+      <button type="button" class="kpi" [class.tone-danger]="c.missed > 0" [class.zero]="!c.missed" [class.on]="activeTab() === 'missed'" (click)="selectTab('missed')">
+        <span class="kpi-label">Missed</span>
+        <span class="kpi-value">{{ c.missed }}</span>
+      </button>
+      <button type="button" class="kpi tone-good" [class.zero]="!c.met" [class.on]="activeTab() === 'met'" (click)="selectTab('met')">
+        <span class="kpi-label">Met</span>
+        <span class="kpi-value">{{ c.met }}</span>
+      </button>
+    </div>
+  }
+
+  <section class="card">
+    <div class="tabs-row">
+      <fu-tabs [tabs]="tabs()" [active]="activeTab()" (activeChange)="selectTab($event)" ariaLabel="Commitment status" />
+    </div>
+    <div class="filter-row">
+      <div class="input-with-icon search">
+        <fu-icon name="search" [size]="15" />
+        <input class="input input-sm" type="search" placeholder="Filter by person or task" aria-label="Filter commitments by person or task" [value]="text()" (input)="onText($event)" />
+      </div>
+      <span class="spacer"></span>
+      @if (madeToMe()) {
+        <span class="chip sm tone-accent">Made to me</span>
+      }
+      @if (!loading()) {
+        <span class="small muted">{{ rows().length }} shown</span>
+      }
+    </div>
+    @if (error() && !rows().length) {
+      <div class="card-body">
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" />
+          <div class="spacer">{{ error() }}</div>
+          <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+        </div>
+      </div>
+    } @else {
+      <fu-commitment-table [commitments]="rows()" [loading]="loading()" [emptyTitle]="emptyTitle()" />
+    }
+  </section>
+</div>

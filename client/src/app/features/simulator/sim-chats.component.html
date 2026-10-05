@@ -1,0 +1,143 @@
+<div class="toolbar">
+  <span class="small muted">Chats are imported by the Teams chat sync. Post as anyone to simulate a reply on a delegated task.</span>
+  <span class="spacer"></span>
+  <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Refresh chats" (click)="reloadChats()"><fu-icon name="refresh" /></button>
+  <button type="button" class="btn btn-sm" [disabled]="users().length < 2" (click)="openNewChat()"><fu-icon name="plus" /> New 1:1 chat</button>
+</div>
+
+<div class="panes">
+  <section class="card list-pane" aria-label="Chats">
+    @if (chats.loading() && !chats.value()) {
+      <fu-skeleton variant="table" [rows]="6" />
+    } @else if (chats.error()) {
+      <div class="card-body">
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" /> <span class="spacer">{{ chats.error() }}</span>
+          <button type="button" class="btn btn-sm" (click)="reloadChats()">Retry</button>
+        </div>
+      </div>
+    } @else {
+      <div class="list">
+        @for (c of chatList(); track c.chat.id) {
+          <button type="button" class="list-row item" [class.on]="c.chat.id === selectedId()" [attr.aria-current]="c.chat.id === selectedId() ? 'true' : null" (click)="selectedId.set(c.chat.id)">
+            <span class="main">
+              <span class="title truncate">{{ c.title }}</span>
+              <span class="meta">
+                <span class="chip sm">{{ chatTypeLabel(c.chat) }}</span>
+                <span>{{ c.names.length }} {{ c.names.length === 1 ? 'member' : 'members' }}</span>
+              </span>
+              <span class="row gap-4 mt-4">
+                @for (n of c.names.slice(0, maxAvatars); track $index) {
+                  <fu-avatar [name]="n" size="sm" />
+                }
+                @if (c.names.length > maxAvatars) {
+                  <span class="xsmall muted">+{{ c.names.length - maxAvatars }}</span>
+                }
+              </span>
+            </span>
+          </button>
+        } @empty {
+          <fu-empty icon="message" title="No chats yet" message="Start a 1:1 chat between two users." [compact]="true" />
+        }
+      </div>
+    }
+  </section>
+
+  <section class="card read-pane" aria-label="Chat messages">
+    @if (selected(); as s) {
+      <header class="card-header">
+        <div class="titles-col">
+          <h2 class="truncate">{{ s.title }}</h2>
+          <div class="xsmall muted truncate">{{ s.names.join(', ') }}</div>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Refresh messages" (click)="reloadMessages()"><fu-icon name="refresh" /></button>
+      </header>
+      <div class="thread" aria-live="polite">
+        @if (messages.loading() && !messages.value()) {
+          <fu-skeleton [rows]="5" />
+        } @else if (messages.error()) {
+          <div class="alert tone-danger" role="alert">
+            <fu-icon name="alert-circle" /> <span class="spacer">{{ messages.error() }}</span>
+            <button type="button" class="btn btn-sm" (click)="reloadMessages()">Retry</button>
+          </div>
+        } @else {
+          @for (m of thread(); track m.id) {
+            <div class="msg">
+              <fu-avatar [name]="senderOf(m)" />
+              <div class="bubble">
+                <div class="meta">
+                  <span class="name">{{ senderOf(m) }}</span>
+                  <span [attr.title]="m.createdDateTime | dateTime">{{ m.createdDateTime | ago }}</span>
+                </div>
+                <div class="text pre">{{ m.text || '(empty message)' }}</div>
+              </div>
+            </div>
+          } @empty {
+            <fu-empty icon="messages" title="No messages yet" message="Post the first message below." [compact]="true" />
+          }
+        }
+      </div>
+      <form class="composer" (submit)="$event.preventDefault(); post()">
+        <div class="row">
+          <label for="sim-chat-poster" class="label">Post as</label>
+          <select id="sim-chat-poster" class="select input-sm" (change)="poster.set(value($event))">
+            @for (u of posters(); track u.id) {
+              <option [value]="u.id" [selected]="u.id === poster()">{{ label(u) }}</option>
+            }
+          </select>
+        </div>
+        <label for="sim-chat-text" class="sr-only">Message</label>
+        <textarea
+          id="sim-chat-text"
+          class="textarea"
+          rows="2"
+          placeholder="Type a message… (Ctrl+Enter to send)"
+          [value]="text()"
+          (input)="text.set(value($event))"
+          (keydown)="onComposerKey($event)"
+        ></textarea>
+        <div class="row">
+          <span class="spacer"></span>
+          <button type="submit" class="btn btn-primary btn-sm" [disabled]="!text().trim() || !poster() || posting()">
+            <fu-icon name="send" /> {{ posting() ? 'Sending…' : 'Send' }}
+          </button>
+        </div>
+      </form>
+    } @else {
+      <fu-empty icon="messages" title="No chat selected" message="Pick a chat to read and post messages." />
+    }
+  </section>
+</div>
+
+@if (newChat(); as d) {
+  <fu-modal title="New 1:1 chat" subtitle="Creates the chat if these two users do not have one yet" size="sm" (closed)="newChat.set(null)">
+    <form class="stack" id="sim-new-chat" (submit)="$event.preventDefault(); createChat()">
+      <div class="field">
+        <label for="sim-chat-a">First user</label>
+        <select id="sim-chat-a" class="select" (change)="setNewChat('userA', $event)">
+          @for (u of users(); track u.id) {
+            <option [value]="u.id" [selected]="u.id === d.userA">{{ label(u) }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="sim-chat-b">Second user</label>
+        <select id="sim-chat-b" class="select" (change)="setNewChat('userB', $event)">
+          @for (u of users(); track u.id) {
+            <option [value]="u.id" [selected]="u.id === d.userB">{{ label(u) }}</option>
+          }
+        </select>
+      </div>
+      @if (d.userA && d.userA === d.userB) {
+        <span class="error-text">Choose two different people.</span>
+      }
+    </form>
+    <ng-container modal-footer>
+      <button type="button" class="btn" (click)="newChat.set(null)">Cancel</button>
+      <button type="submit" form="sim-new-chat" class="btn btn-primary" [disabled]="!d.userA || !d.userB || d.userA === d.userB || creating()">
+        {{ creating() ? 'Creating…' : 'Open chat' }}
+      </button>
+    </ng-container>
+  </fu-modal>
+}

@@ -1,0 +1,224 @@
+<div class="page-header">
+  <div class="titles">
+    <h2>Escalation policies</h2>
+    <div class="subtitle">Who hears about a task when it slips, how quickly, and when it reaches the CEO’s attention list.</div>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh policies" (click)="reload()"><fu-icon name="refresh" /></button>
+    <button type="button" class="btn btn-primary" (click)="openNew()"><fu-icon name="plus" /> New policy</button>
+  </div>
+</div>
+
+@if (data.loading() && !data.value()) {
+  <div class="layout">
+    <div class="card pad"><fu-skeleton [rows]="4" /></div>
+    <div class="card pad"><fu-skeleton [rows]="10" /></div>
+  </div>
+} @else if (data.error()) {
+  <div class="alert tone-danger" role="alert">
+    <fu-icon name="alert-circle" /> <span class="spacer">{{ data.error() }}</span>
+    <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+  </div>
+} @else {
+  <div class="layout">
+    <section class="card list-card" aria-label="Policies">
+      <header class="card-header">
+        <h2>Policies</h2>
+        <span class="count-pill">{{ policies().length }}</span>
+      </header>
+      <div class="list">
+        @for (p of policies(); track p.id) {
+          <button type="button" class="list-row" [class.on]="selectedId() === p.id" [attr.aria-current]="selectedId() === p.id ? 'true' : null" (click)="open(p)">
+            <span class="main">
+              <span class="title row gap-4">
+                <span class="truncate">{{ p.name }}</span>
+                @if (p.isDefault) {
+                  <span class="badge tone-accent">Default</span>
+                }
+                @if (!p.isActive) {
+                  <span class="badge">Inactive</span>
+                }
+              </span>
+              <span class="meta">
+                <span class="truncate">Applies to: {{ p.appliesTo || '—' }}</span>
+                <span>{{ p.steps.length }} {{ p.steps.length === 1 ? 'step' : 'steps' }}</span>
+              </span>
+            </span>
+          </button>
+        } @empty {
+          @if (selectedId() !== 'new') {
+            <fu-empty icon="zap" title="No policies yet" message="Create a policy so slipping tasks escalate automatically." [compact]="true" />
+          }
+        }
+        @if (selectedId() === 'new') {
+          <div class="list-row on">
+            <span class="main"><span class="title">New policy</span><span class="meta">Not saved yet</span></span>
+          </div>
+        }
+      </div>
+    </section>
+
+    @if (selectedId()) {
+      <form [formGroup]="form" class="stack-lg" id="policy-form" (ngSubmit)="save()" novalidate>
+        <section class="card">
+          <header class="card-header">
+            <h2 class="truncate">{{ selected()?.name || 'New policy' }}</h2>
+            @if (state().dirty) {
+              <span class="chip sm tone-warning">Unsaved changes</span>
+            }
+          </header>
+          <div class="card-body form-grid">
+            <div class="field">
+              <label for="pol-name" class="req">Name</label>
+              <input id="pol-name" class="input" formControlName="name" maxlength="120" />
+              @if (form.controls.name.touched && form.controls.name.invalid) {
+                <span class="error">A name is required.</span>
+              }
+            </div>
+            <div class="field">
+              <label for="pol-applies" class="req">Applies to</label>
+              <input id="pol-applies" class="input" formControlName="appliesTo" placeholder="Critical, BusinessCritical" />
+              <div class="tokens" role="group" aria-label="Quick picks for applies to">
+                @for (t of appliesToTokens; track t) {
+                  <button type="button" class="chip sm selectable" [class.on]="isApplied(t)" [attr.aria-pressed]="isApplied(t)" (click)="toggleAppliesTo(t)">
+                    {{ t | humanize }}
+                  </button>
+                }
+              </div>
+              @if (form.controls.appliesTo.touched && form.controls.appliesTo.invalid) {
+                <span class="error">Say which tasks use this policy (or “Default”).</span>
+              }
+            </div>
+            <div class="field full">
+              <label for="pol-desc">Description</label>
+              <textarea id="pol-desc" class="textarea" formControlName="description" rows="2" placeholder="When to use this policy"></textarea>
+            </div>
+            <div class="field">
+              <label class="switch"><input type="checkbox" formControlName="isDefault" /> Default policy</label>
+              <span class="hint">Used when a task or template names no policy.</span>
+            </div>
+            <div class="field">
+              <label class="switch"><input type="checkbox" formControlName="isActive" /> Active</label>
+              <span class="hint">Inactive policies stop escalating; existing escalations stay on record.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <header class="card-header">
+            <h2>Steps</h2>
+            <span class="count-pill">{{ steps.length }}</span>
+            <span class="desc">Evaluated in order; each step fires once per task.</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-sm" (click)="addStep()"><fu-icon name="plus" /> Add step</button>
+          </header>
+          <div class="card-body stack-lg">
+            @for (step of steps.controls; track step; let i = $index; let first = $first; let last = $last) {
+              <!-- Each step binds its own group (not an index path) so reordering cannot cross-wire controls. -->
+              <div class="step" [formGroup]="step">
+                <div class="step-head">
+                  <span class="order" aria-hidden="true">{{ i + 1 }}</span>
+                  <div class="sentence">
+                    <div class="strong">Step {{ i + 1 }}</div>
+                    <div class="small" [class.text-danger]="stepsWithoutTargets().includes(i)">{{ summaries()[i] }}</div>
+                  </div>
+                  <span class="spacer"></span>
+                  <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Move step ' + (i + 1) + ' up'" [disabled]="first" (click)="moveStep(i, -1)">
+                    <fu-icon name="arrow-up" [size]="14" />
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Move step ' + (i + 1) + ' down'" [disabled]="last" (click)="moveStep(i, 1)">
+                    <fu-icon name="arrow-down" [size]="14" />
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Remove step ' + (i + 1)" (click)="removeStep(i)">
+                    <fu-icon name="trash" [size]="14" />
+                  </button>
+                </div>
+
+                <div class="form-grid-3">
+                  <div class="field">
+                    <label [for]="'step-' + i + '-trigger'">Trigger</label>
+                    <select class="select" [id]="'step-' + i + '-trigger'" formControlName="trigger">
+                      @for (t of triggers; track t) {
+                        <option [ngValue]="t">{{ t | humanize }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label [for]="'step-' + i + '-threshold'">Threshold</label>
+                    <div class="input-group">
+                      <input class="input threshold" type="number" min="0" step="1" [id]="'step-' + i + '-threshold'" formControlName="threshold" />
+                      <select class="select" formControlName="unit" [attr.aria-label]="'Step ' + (i + 1) + ' threshold unit'">
+                        @for (u of units; track u) {
+                          <option [ngValue]="u">{{ u | humanize }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label [for]="'step-' + i + '-level'">Level</label>
+                    <select class="select" [id]="'step-' + i + '-level'" formControlName="level">
+                      @for (l of levels; track l) {
+                        <option [ngValue]="l">Level {{ l }}</option>
+                      }
+                    </select>
+                  </div>
+                  <fieldset class="fieldset full">
+                    <legend>Notify</legend>
+                    <div class="checks">
+                      @for (t of targetValues; track t) {
+                        <label class="check">
+                          <input type="checkbox" [checked]="state().value.steps[i]?.targets?.includes(t)" (change)="toggleIn(step.controls.targets, t, $event)" />
+                          {{ t | humanize }}
+                        </label>
+                      }
+                    </div>
+                    @if (stepsWithoutTargets().includes(i)) {
+                      <div class="error-text mt-4">Choose at least one person to notify.</div>
+                    }
+                  </fieldset>
+                  <div class="field">
+                    <span class="label">Channels</span>
+                    <div class="checks" role="group" [attr.aria-label]="'Step ' + (i + 1) + ' channels'">
+                      @for (c of channelValues; track c) {
+                        <label class="check">
+                          <input type="checkbox" [checked]="state().value.steps[i]?.channels?.includes(c)" (change)="toggleIn(step.controls.channels, c, $event)" />
+                          {{ c | humanize }}
+                        </label>
+                      }
+                    </div>
+                  </div>
+                  <div class="field">
+                    <span class="label">CEO</span>
+                    <label class="switch"><input type="checkbox" formControlName="raiseCeoAttention" /> Raise CEO attention</label>
+                  </div>
+                  <div class="field">
+                    <label [for]="'step-' + i + '-desc'">Note</label>
+                    <input class="input" [id]="'step-' + i + '-desc'" formControlName="description" placeholder="Optional" />
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <fu-empty icon="zap" title="No steps" message="Without steps this policy never escalates." [compact]="true">
+                <button type="button" class="btn btn-sm mt-8" (click)="addStep()"><fu-icon name="plus" /> Add step</button>
+              </fu-empty>
+            }
+          </div>
+          <footer class="card-footer">
+            <span class="hint">Thresholds in working days skip weekends and holidays from the task’s calendar.</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn" [disabled]="saving() || (!state().dirty && selectedId() !== 'new')" (click)="discard()">
+              {{ selectedId() === 'new' ? 'Cancel' : 'Discard changes' }}
+            </button>
+            <button type="submit" class="btn btn-primary" [disabled]="saving() || (!state().dirty && selectedId() !== 'new')">
+              {{ saving() ? 'Saving…' : selectedId() === 'new' ? 'Create policy' : 'Save policy' }}
+            </button>
+          </footer>
+        </section>
+      </form>
+    } @else {
+      <section class="card">
+        <fu-empty icon="zap" title="No policy selected" message="Pick a policy on the left or create a new one." />
+      </section>
+    }
+  </div>
+}

@@ -1,0 +1,133 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Projects</h1>
+      <div class="subtitle">Initiatives with their derived status, progress and the tasks that need attention.</div>
+    </div>
+    <div class="actions">
+      <div class="input-with-icon search">
+        <fu-icon name="search" [size]="15" />
+        <input
+          class="input"
+          type="search"
+          placeholder="Search projects…"
+          aria-label="Search projects"
+          [value]="query()"
+          (input)="query.set($any($event.target).value)"
+        />
+      </div>
+      <label class="switch"><input type="checkbox" [checked]="showInactive()" (change)="showInactive.set($any($event.target).checked)" /> Show inactive</label>
+      @if (canManage()) {
+        <button type="button" class="btn btn-primary" (click)="formOpen.set(true)">
+          <fu-icon name="plus" [size]="15" /> New project
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (data.loading() && !data.value()) {
+    <fu-skeleton variant="cards" [rows]="6" />
+  } @else if (data.error() && !data.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <span class="spacer">{{ data.error() }}</span>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else if (!hasAny()) {
+    <div class="card">
+      <fu-empty icon="briefcase" title="No projects yet" message="Projects group delegated tasks under one initiative, such as “UAE e-Invoicing Launch”.">
+        @if (canManage()) {
+          <button type="button" class="btn btn-primary mt-8" (click)="formOpen.set(true)"><fu-icon name="plus" [size]="15" /> New project</button>
+        }
+      </fu-empty>
+    </div>
+  } @else {
+    <div class="segmented mb-16" role="group" aria-label="Filter by status">
+      @for (f of statusFilters; track f.key) {
+        <button type="button" [class.active]="statusFilter() === f.key" [attr.aria-pressed]="statusFilter() === f.key" (click)="statusFilter.set(f.key)">
+          {{ f.label }}
+          <span class="count-pill" [class]="statusCounts()[f.key] ? f.tone : ''">{{ statusCounts()[f.key] }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="grid-cards">
+      @for (p of visible(); track p.id) {
+        <article class="card project" [class.inactive]="!p.isActive">
+          <header class="pc-head">
+            <div class="titles">
+              <div class="row gap-4 xsmall">
+                <span class="task-number">{{ p.code }}</span>
+                @if (!p.isActive) {
+                  <span class="chip sm outline">Inactive</span>
+                }
+              </div>
+              <h2 class="truncate">
+                <a class="stretch" [routerLink]="['/projects', p.id]" [attr.aria-label]="p.name + ' — ' + p.status + ', ' + percent(p) + '% complete'">{{ p.name }}</a>
+              </h2>
+            </div>
+            <fu-project-status [status]="p.status" />
+          </header>
+
+          <div class="row wrap meta small">
+            <fu-health [value]="p.worstHealth" />
+            <fu-person [person]="p.owner" emptyText="No owner" />
+            @if (p.department?.name) {
+              <span class="muted truncate">{{ p.department?.name }}</span>
+            }
+          </div>
+
+          @if (p.description) {
+            <p class="desc clamp-2 small" [attr.title]="p.description">{{ p.description }}</p>
+          }
+
+          <div class="progress-row">
+            <div class="progress" [class]="statusClass(p)" role="progressbar" [attr.aria-valuenow]="percent(p)" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'Progress ' + percent(p) + '%'">
+              <span [style.width.%]="percent(p)"></span>
+            </div>
+            <div class="row small">
+              <span class="muted">{{ p.completedTasks }} of {{ p.totalTasks }} tasks done</span>
+              <span class="spacer"></span>
+              <span class="strong num">{{ percent(p) }}%</span>
+            </div>
+          </div>
+
+          <dl class="counts">
+            <div><dt>Open</dt><dd class="num">{{ p.openTasks }}</dd></div>
+            <div [class.bad]="p.overdueTasks > 0"><dt>Overdue</dt><dd class="num">{{ p.overdueTasks }}</dd></div>
+            <div [class.warn]="p.blockedTasks > 0"><dt>Blocked</dt><dd class="num">{{ p.blockedTasks }}</dd></div>
+            <div [class.warn]="p.criticalTasks > 0"><dt>Critical</dt><dd class="num">{{ p.criticalTasks }}</dd></div>
+          </dl>
+
+          <footer class="pc-foot small">
+            <span class="row gap-4" [class.text-danger]="targetMissed(p)" [class.strong]="targetMissed(p)">
+              <fu-icon name="flag" [size]="13" />
+              @if (p.targetDate) {
+                Target {{ p.targetDate | dateOnly }}
+              } @else {
+                <span class="muted">No target date</span>
+              }
+            </span>
+            <span class="spacer"></span>
+            @if (p.nextDeadline; as nd) {
+              <a class="next" [routerLink]="['/tasks', nd.id]" [attr.title]="'Next deadline: ' + nd.number + ' ' + nd.title">
+                <span class="task-number">{{ nd.number }}</span>
+                <fu-deadline [text]="nd.deadlineText" [overdue]="nd.isOverdue" [bucket]="nd.bucket" />
+              </a>
+            }
+          </footer>
+        </article>
+      } @empty {
+        <div class="card full-row">
+          <fu-empty icon="search" title="No matching projects" message="Try another search or status.">
+            <button type="button" class="btn btn-sm mt-8" (click)="clearFilters()">Clear filters</button>
+          </fu-empty>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (formOpen()) {
+  <fu-project-form (saved)="onSaved($event)" (closed)="formOpen.set(false)" />
+}

@@ -1,0 +1,181 @@
+<div class="page-header">
+  <div class="titles">
+    <h2>Audit log</h2>
+    <div class="subtitle">Every change to tasks, people and settings — who, what, when and from where. Entries are hash-chained per task.</div>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh audit log" (click)="reload()"><fu-icon name="refresh" /></button>
+    <button type="button" class="btn" [disabled]="!taskId() || verifying()" [attr.title]="taskId() ? 'Recompute the hash chain for this task' : 'Choose a task first'" (click)="verifyChain()">
+      <fu-icon name="shield" /> {{ verifying() ? 'Verifying…' : 'Verify chain' }}
+    </button>
+  </div>
+</div>
+
+<form class="card filters" role="search" aria-label="Audit filters" (submit)="$event.preventDefault(); apply()">
+  <div class="field task-field">
+    <label for="audit-task">Task</label>
+    @if (taskId()) {
+      <div class="picked">
+        <fu-icon name="tasks" class="muted" />
+        <span class="truncate" [attr.title]="taskLabel()">{{ taskLabel() }}</span>
+        <button type="button" class="btn btn-ghost btn-icon btn-xs" aria-label="Clear task filter" (click)="clearTask()"><fu-icon name="x" [size]="13" /></button>
+      </div>
+    } @else {
+      <div class="task-search">
+        <input
+          id="audit-task"
+          class="input"
+          type="search"
+          autocomplete="off"
+          placeholder="Task number, title or pasted id…"
+          role="combobox"
+          aria-controls="audit-task-results"
+          [attr.aria-expanded]="taskMenuOpen() && taskResults().length > 0"
+          [value]="taskText()"
+          (input)="onTaskInput($event)"
+          (focus)="taskMenuOpen.set(true)"
+          (blur)="closeTaskMenuSoon()"
+          (keydown.enter)="onTaskEnter($event)"
+          (keydown.escape)="taskMenuOpen.set(false)"
+        />
+        @if (taskMenuOpen() && taskResults().length) {
+          <ul class="menu results" id="audit-task-results" role="listbox">
+            @for (t of taskResults(); track t.id) {
+              <li role="option" aria-selected="false">
+                <button type="button" class="menu-item" (mousedown)="$event.preventDefault()" (click)="pickTask(t)">
+                  <span class="task-number">{{ t.number }}</span>
+                  <span class="truncate">{{ t.title }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </div>
+  <div class="field">
+    <label for="audit-entity">Entity type</label>
+    <input id="audit-entity" class="input" placeholder="Task, Employee…" [value]="draftEntity()" (input)="setDraft('entity', $event)" />
+  </div>
+  <div class="field">
+    <label for="audit-action">Action</label>
+    <input id="audit-action" class="input" placeholder="StatusChanged…" [value]="draftAction()" (input)="setDraft('action', $event)" />
+  </div>
+  <div class="field">
+    <label for="audit-from">From</label>
+    <input id="audit-from" class="input" type="date" [value]="draftFrom()" (change)="setDraft('from', $event)" />
+  </div>
+  <div class="field">
+    <label for="audit-to">To</label>
+    <input id="audit-to" class="input" type="date" [value]="draftTo()" (change)="setDraft('to', $event)" />
+  </div>
+  <div class="buttons">
+    <button type="submit" class="btn btn-primary"><fu-icon name="filter" /> Apply</button>
+    @if (hasFilters()) {
+      <button type="button" class="btn btn-ghost" (click)="clear()">Clear</button>
+    }
+  </div>
+</form>
+
+@if (verify(); as v) {
+  @if (v.ok) {
+    <div class="alert tone-good mt-16" role="status">
+      <fu-icon name="check-circle" />
+      <span><strong>Audit chain intact.</strong> Every entry for {{ taskLabel() }} matches its recorded hash — nothing was altered or removed.</span>
+    </div>
+  } @else {
+    <div class="alert tone-danger mt-16" role="alert">
+      <fu-icon name="alert-triangle" />
+      <span>
+        <strong>Chain broken{{ v.brokenEntryId ? ' at entry ' : '' }}<span class="mono">{{ v.brokenEntryId ?? '' }}</span>.</strong>
+        An entry was modified or removed after it was written. The affected row is highlighted below when it is on this page.
+      </span>
+    </div>
+  }
+}
+
+<section class="card mt-16">
+  <header class="card-header">
+    <h2>Entries</h2>
+    <span class="count-pill">{{ rows().length }}{{ rows().length >= pageSize ? '+' : '' }}</span>
+    <span class="spacer"></span>
+    <nav class="row small muted" aria-label="Audit pages">
+      <button type="button" class="btn btn-sm btn-icon" aria-label="Previous page" [disabled]="pageNo() <= 1 || data.loading()" (click)="goPage(pageNo() - 1)">
+        <fu-icon name="chevron-left" />
+      </button>
+      <span class="num">Page {{ pageNo() }}</span>
+      <button type="button" class="btn btn-sm btn-icon" aria-label="Next page" [disabled]="rows().length < pageSize || data.loading()" (click)="goPage(pageNo() + 1)">
+        <fu-icon name="chevron-right" />
+      </button>
+    </nav>
+  </header>
+  <div class="card-body flush">
+    @if (data.loading() && !data.value()) {
+      <fu-skeleton variant="table" [rows]="10" />
+    } @else if (data.error()) {
+      <div class="card-body">
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" /> <span class="spacer">{{ data.error() }}</span>
+          <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+        </div>
+      </div>
+    } @else if (!rows().length) {
+      <fu-empty icon="shield" [title]="hasFilters() ? 'No entries match' : 'No audit entries yet'" [message]="hasFilters() ? 'Widen the dates or clear a filter.' : 'Changes are recorded here as people work.'" />
+    } @else {
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Entity</th>
+              <th>Task</th>
+              <th>Field</th>
+              <th>Old → new</th>
+              <th>Details</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of rows(); track r.id) {
+              <tr [class.broken]="brokenEntryId() === r.id">
+                <td class="nowrap small num">{{ r.at | dateTime }}</td>
+                <td class="small nowrap">{{ r.actorName || '—' }}</td>
+                <td class="small"><span class="strong">{{ r.action | humanize }}</span></td>
+                <td class="small nowrap">{{ r.entityType }}</td>
+                <td class="nowrap">
+                  @if (r.taskId) {
+                    <a class="task-number" [routerLink]="['/tasks', r.taskId]">{{ r.taskNumber || 'Task' }}</a>
+                    @if (r.taskId !== taskId()) {
+                      <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Show only ' + (r.taskNumber || 'this task')" title="Filter to this task" (click)="filterTask(r.taskId, r.taskNumber)">
+                        <fu-icon name="filter" [size]="12" />
+                      </button>
+                    }
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+                <td class="small">{{ r.field || '—' }}</td>
+                <td>
+                  @if (r.oldValue || r.newValue) {
+                    <div class="change">
+                      <span class="mono xsmall old truncate" [attr.title]="r.oldValue ?? ''">{{ r.oldValue || '∅' }}</span>
+                      <span class="arrow" aria-hidden="true">→</span>
+                      <span class="sr-only">changed to</span>
+                      <span class="mono xsmall new truncate" [attr.title]="r.newValue ?? ''">{{ r.newValue || '∅' }}</span>
+                    </div>
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+                <td class="details"><span class="small clamp-2" [attr.title]="r.details ?? ''">{{ r.details || '—' }}</span></td>
+                <td><span [class]="'chip sm tone-' + sourceTone(r.source)">{{ r.source | humanize }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>

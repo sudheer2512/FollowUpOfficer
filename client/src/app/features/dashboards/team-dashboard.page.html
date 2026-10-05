@@ -1,0 +1,220 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>{{ data()?.team?.name || 'Team' }}</h1>
+      <div class="subtitle row wrap">
+        @if (data()?.leader; as leader) {
+          <span>Team leader</span>
+          <fu-person [person]="leader" />
+          <span>·</span>
+        }
+        @if (data()) {
+          <span>{{ members().length }} member{{ members().length === 1 ? '' : 's' }}</span>
+        } @else {
+          <span>Workload, delays and follow-up health for the teams you lead</span>
+        }
+      </div>
+    </div>
+    <div class="actions">
+      @if (teamOptions().length > 1 || (teamOptions().length === 1 && !id())) {
+        <label class="sr-only" for="team-picker">Team</label>
+        <select id="team-picker" class="select team-picker" [value]="id() ?? ''" (change)="selectTeam($event)">
+          @if (!id()) {
+            <option value="" disabled>Choose a team…</option>
+          }
+          @for (t of teamOptions(); track t.id) {
+            <option [value]="t.id" [selected]="t.id === id()">{{ t.name }}</option>
+          }
+        </select>
+      }
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh team dashboard" title="Refresh" [disabled]="dash.loading()" (click)="reload()">
+        <fu-icon name="refresh" />
+      </button>
+    </div>
+  </div>
+
+  @if (noTeams()) {
+    <section class="card">
+      <fu-empty icon="users" title="You don't lead a team yet" message="Team dashboards are available to team leaders, managers and executives.">
+        <a class="btn btn-sm mt-8" routerLink="/me">Go to my dashboard</a>
+      </fu-empty>
+    </section>
+  } @else if (teams.error() && !id()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <div class="spacer">{{ teams.error() }}</div>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else if (dash.error() && !data()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <div class="spacer">{{ dash.error() }}</div>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else if (!data()) {
+    <fu-skeleton variant="tiles" [rows]="6" />
+    <section class="card block"><fu-skeleton variant="table" [rows]="5" /></section>
+    <div class="block"><fu-skeleton variant="cards" [rows]="3" /></div>
+  } @else {
+    @if (tiles().length) {
+      <div class="kpi-grid" aria-label="Key indicators">
+        @for (t of tiles(); track t.key) {
+          <fu-tile [tile]="t" />
+        }
+      </div>
+    }
+
+    <div class="load-grid block">
+      <section class="card" aria-labelledby="team-load-title">
+        <header class="card-header">
+          <h2 id="team-load-title">Member load</h2>
+          <span class="count-pill">{{ members().length }}</span>
+        </header>
+        <div class="card-body flush">
+          @if (members().length) {
+            <div class="table-wrap">
+              <table class="table compact">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th class="num">Open</th>
+                    <th class="num">Due this week</th>
+                    <th class="num">Overdue</th>
+                    <th class="num">Critical</th>
+                    <th class="num">Blocked</th>
+                    <th class="num">No recent update</th>
+                    <th class="num">Completed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (m of members(); track m.person.id || $index) {
+                    <tr>
+                      <td class="person">
+                        @if (m.person.id) {
+                          <a [routerLink]="['/tasks']" [queryParams]="memberQuery(m)" [attr.aria-label]="'Open tasks of ' + m.person.name">
+                            <fu-person [person]="m.person" />
+                          </a>
+                        } @else {
+                          <fu-person [person]="m.person" />
+                        }
+                      </td>
+                      <td class="num strong">{{ m.open }}</td>
+                      <td class="num" [class.text-warning]="m.dueThisWeek > 0">{{ m.dueThisWeek }}</td>
+                      <td class="num" [class.text-danger]="m.overdue > 0" [class.strong]="m.overdue > 0">{{ m.overdue }}</td>
+                      <td class="num" [class.text-orange]="m.critical > 0">{{ m.critical }}</td>
+                      <td class="num" [class.text-danger]="m.blocked > 0">{{ m.blocked }}</td>
+                      <td class="num" [class.text-warning]="m.noRecentUpdate > 0">{{ m.noRecentUpdate }}</td>
+                      <td class="num muted">{{ m.completed }}</td>
+                    </tr>
+                  }
+                </tbody>
+                @if (members().length > 1) {
+                  <tfoot>
+                    <tr>
+                      <td>Team total</td>
+                      <td class="num">{{ totals().open }}</td>
+                      <td class="num">{{ totals().dueThisWeek }}</td>
+                      <td class="num" [class.text-danger]="totals().overdue > 0">{{ totals().overdue }}</td>
+                      <td class="num">{{ totals().critical }}</td>
+                      <td class="num">{{ totals().blocked }}</td>
+                      <td class="num">{{ totals().noRecentUpdate }}</td>
+                      <td class="num">{{ totals().completed }}</td>
+                    </tr>
+                  </tfoot>
+                }
+              </table>
+            </div>
+          } @else {
+            <fu-empty icon="users" title="No members" message="Add people to this team to see their workload." [compact]="true" />
+          }
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="team-chart-title">
+        <header class="card-header">
+          <h2 id="team-chart-title">Workload by member</h2>
+          <span class="spacer"></span>
+          <span class="xsmall muted">Click a bar to open the tasks</span>
+        </header>
+        <div class="card-body">
+          @if (members().length) {
+            <fu-chart [options]="chartOptions()" [height]="chartHeight()" (chartClick)="onChartClick($event)" />
+          } @else {
+            <fu-empty icon="chart" message="No open work to chart." [compact]="true" />
+          }
+        </div>
+      </section>
+    </div>
+
+    <div class="grid-auto block">
+      @for (c of taskCards(); track c.key) {
+        <section class="card list-card" [attr.aria-labelledby]="'team-card-' + c.key">
+          <header class="card-header">
+            <h2 [id]="'team-card-' + c.key">{{ c.title }}</h2>
+            <span class="count-pill" [class.danger]="c.tone === 'danger' && c.tasks.length > 0" [class.warning]="c.tone === 'warning' && c.tasks.length > 0">
+              {{ c.tasks.length }}
+            </span>
+            <span class="spacer"></span>
+            <a class="small nowrap" routerLink="/tasks" [queryParams]="viewAll(c)" [attr.aria-label]="'View all: ' + c.title">View all</a>
+          </header>
+          <div class="card-body flush">
+            <fu-task-list [tasks]="c.tasks" [limit]="6" [detail]="c.detail" [showStatus]="c.showStatus" [emptyMessage]="c.empty" />
+          </div>
+        </section>
+      }
+    </div>
+
+    <section class="card block" aria-labelledby="team-recurring-title">
+      <header class="card-header">
+        <h2 id="team-recurring-title">Recurring tasks</h2>
+        <span class="count-pill">{{ recurring().length }}</span>
+        <span class="spacer"></span>
+        <a class="small nowrap" routerLink="/recurring">All recurring tasks</a>
+      </header>
+      <div class="card-body flush">
+        @if (recurring().length) {
+          <div class="table-wrap">
+            <table class="table compact">
+              <thead>
+                <tr>
+                  <th>Recurring task</th>
+                  <th>Assignee</th>
+                  <th>Schedule</th>
+                  <th>Next occurrence</th>
+                  <th>State</th>
+                  <th>Compliance</th>
+                  <th class="num">Missed</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of recurring(); track r.id) {
+                  <tr>
+                    <td class="rec-title">
+                      <a [routerLink]="['/recurring', r.id]" class="strong">{{ r.titleTemplate }}</a>
+                      @if (r.code) {
+                        <div class="task-number">{{ r.code }}</div>
+                      }
+                    </td>
+                    <td><fu-person [person]="r.primaryAssignee" emptyText="—" /></td>
+                    <td class="small rule">{{ r.ruleText }}</td>
+                    <td class="small nowrap">{{ (r.nextOccurrenceAt | dateTime: 'short') || '—' }}</td>
+                    <td><span class="badge tone-{{ stateTone(r.state) }}">{{ r.state | humanize }}</span></td>
+                    <td>
+                      <div class="row">
+                        <div class="progress compliance {{ complianceTone(r.compliancePercent) }}"><span [style.width.%]="r.compliancePercent"></span></div>
+                        <span class="small num">{{ r.compliancePercent | number: '1.0-0' }}%</span>
+                      </div>
+                    </td>
+                    <td class="num" [class.text-danger]="r.missedCount > 0" [class.strong]="r.missedCount > 0">{{ r.missedCount }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <fu-empty icon="repeat" title="" message="This team has no recurring tasks." [compact]="true" />
+        }
+      </div>
+    </section>
+  }
+</div>

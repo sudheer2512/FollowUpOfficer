@@ -1,0 +1,202 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Reports</h1>
+      <div class="subtitle">{{ subtitle() }}</div>
+    </div>
+    <div class="actions">
+      @if (report.loading() && report.value()) {
+        <span class="xsmall muted row gap-4" role="status"><fu-icon name="refresh" [size]="13" /> Updating…</span>
+      }
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh report" title="Refresh" (click)="load()">
+        <fu-icon name="refresh" />
+      </button>
+    </div>
+  </div>
+
+  <section class="card filters" aria-label="Report filters">
+    <div class="field">
+      <label for="report-preset">Period</label>
+      <select id="report-preset" class="select" [value]="period().preset" (change)="setPreset($any($event.target).value)">
+        @for (p of presets; track p.key) {
+          <option [value]="p.key" [selected]="p.key === period().preset">{{ p.label }}</option>
+        }
+      </select>
+    </div>
+    @if (period().preset === 'custom') {
+      <div class="field">
+        <label for="report-from">From</label>
+        <input id="report-from" class="input" type="date" [value]="period().from" [max]="period().to" (change)="setDate('from', $any($event.target).value)" />
+      </div>
+      <div class="field">
+        <label for="report-to">To</label>
+        <input id="report-to" class="input" type="date" [value]="period().to" [min]="period().from" (change)="setDate('to', $any($event.target).value)" />
+      </div>
+    }
+    <div class="field">
+      <label for="report-department">Department</label>
+      <fu-lookup-select
+        kind="department"
+        selectId="report-department"
+        emptyLabel="All departments"
+        [ngModel]="departmentId() ?? null"
+        (ngModelChange)="setDepartment($event)"
+      />
+    </div>
+    <div class="field">
+      <span class="label" aria-hidden="true">Team</span>
+      <fu-team-picker
+        ariaLabel="Team"
+        emptyLabel="All teams"
+        [departmentId]="departmentId() ?? null"
+        [ngModel]="teamId() ?? null"
+        (ngModelChange)="setTeam($event)"
+      />
+    </div>
+    @if (hasFilters()) {
+      <button type="button" class="btn btn-ghost btn-sm reset" (click)="clearFilters()">Reset</button>
+    }
+  </section>
+
+  @if (report.loading() && !report.value()) {
+    <fu-skeleton class="mt-16" variant="tiles" [rows]="12" />
+    <div class="charts mt-16">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <section class="card"><div class="card-body"><div class="skeleton" style="height: 240px"></div></div></section>
+      }
+    </div>
+  } @else if (report.error()) {
+    <div class="alert tone-danger mt-16" role="alert">
+      <fu-icon name="alert-circle" />
+      <span class="spacer">{{ report.error() }}</span>
+      <button type="button" class="btn btn-sm" (click)="load()">Retry</button>
+    </div>
+  } @else if (report.value()) {
+    <div class="content" [class.stale]="report.loading()">
+      @if (metrics().length) {
+        <div class="kpi-grid mt-16">
+          @for (m of metrics(); track m.key) {
+            @if (m.link; as d) {
+              <a class="kpi" [routerLink]="d.route" [queryParams]="d.query" [attr.aria-label]="m.label + ': ' + m.display + ' — open list'">
+                <span class="kpi-label truncate">{{ m.label }}</span>
+                <span class="kpi-value">{{ m.display }}</span>
+                @if (m.hint) {
+                  <span class="kpi-hint truncate" [attr.title]="m.hint">{{ m.hint }}</span>
+                }
+              </a>
+            } @else {
+              <div class="kpi static">
+                <span class="kpi-label truncate">{{ m.label }}</span>
+                <span class="kpi-value">{{ m.display }}</span>
+                @if (m.hint) {
+                  <span class="kpi-hint truncate" [attr.title]="m.hint">{{ m.hint }}</span>
+                }
+              </div>
+            }
+          }
+        </div>
+      } @else {
+        <section class="card mt-16"><fu-empty icon="chart" title="No metrics" message="No work was assigned or completed in this period for the selected filters." /></section>
+      }
+
+      <div class="charts mt-16">
+        <section class="card">
+          <header class="card-header"><h2>Created, completed and overdue</h2></header>
+          <div class="card-body">
+            @if (trendChart(); as o) {
+              <fu-chart [options]="o" height="260px" />
+            } @else {
+              <fu-empty icon="trending-up" title="No activity" message="No tasks were created or completed in this period." [compact]="true" />
+            }
+          </div>
+        </section>
+
+        <section class="card">
+          <header class="card-header">
+            <h2>Overdue ageing</h2>
+            @if (ageingChart()) {
+              <span class="desc">Click a bar to open those tasks</span>
+            }
+          </header>
+          <div class="card-body">
+            @if (ageingChart(); as o) {
+              <fu-chart [options]="o" height="260px" (chartClick)="openAgeing($event.dataIndex)" />
+            } @else {
+              <fu-empty icon="check-circle" title="Nothing overdue" message="No open task is past its due date." [compact]="true" />
+            }
+          </div>
+        </section>
+
+        <section class="card">
+          <header class="card-header"><h2>Escalations by level</h2></header>
+          <div class="card-body">
+            @if (levelChart(); as o) {
+              <fu-chart [options]="o" height="240px" />
+            } @else {
+              <fu-empty icon="zap" title="No escalations" message="Nothing was escalated in this period." [compact]="true" />
+            }
+          </div>
+        </section>
+
+        <section class="card">
+          <header class="card-header"><h2>Escalations by trigger</h2></header>
+          <div class="card-body">
+            @if (triggerChart(); as o) {
+              <fu-chart [options]="o" height="240px" />
+            } @else {
+              <fu-empty icon="zap" title="No escalations" message="Nothing was escalated in this period." [compact]="true" />
+            }
+          </div>
+        </section>
+
+        <section class="card wide">
+          <header class="card-header"><h2>On-time completion by department</h2></header>
+          <div class="card-body">
+            @if (onTimeChart(); as o) {
+              <fu-chart [options]="o" height="260px" />
+            } @else {
+              <fu-empty icon="chart" title="No completed work" message="On-time rates appear once departments complete tasks in this period." [compact]="true" />
+            }
+          </div>
+        </section>
+      </div>
+
+      <section class="card mt-16">
+        <div class="tabs-wrap">
+          <fu-tabs [tabs]="tabs()" [(active)]="tab" ariaLabel="Report tables" />
+        </div>
+        <div class="card-body flush" role="tabpanel">
+          @switch (tab()) {
+            @case ('departments') {
+              <fu-performance-table [rows]="tables().departments" kind="department" />
+            }
+            @case ('teams') {
+              <fu-performance-table [rows]="tables().teams" kind="team" />
+            }
+            @case ('people') {
+              <fu-performance-table [rows]="tables().people" kind="person" />
+            }
+            @case ('recurring') {
+              <fu-recurring-compliance-table [rows]="tables().recurring" />
+            }
+            @case ('missed') {
+              <fu-commitment-table
+                [commitments]="tables().missed"
+                emptyTitle="No missed commitments"
+                emptyMessage="Every promise due in this period was kept or is still open."
+              />
+            }
+            @case ('no-response') {
+              <fu-task-table
+                [tasks]="tables().noResponse"
+                [columns]="noResponseColumns"
+                emptyTitle="Everyone has responded"
+                emptyMessage="No task is waiting on an unanswered follow-up."
+              />
+            }
+          }
+        </div>
+      </section>
+    </div>
+  }
+</div>

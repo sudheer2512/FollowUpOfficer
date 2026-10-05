@@ -1,0 +1,136 @@
+<div class="panel">
+  <fieldset class="grp">
+    <legend class="section-title">Status</legend>
+    <div class="chips" role="group" aria-label="Status">
+      @for (s of statusOptions; track s) {
+        <button type="button" class="chip selectable" [class.on]="selected().statuses.has(s)" [attr.aria-pressed]="selected().statuses.has(s)" (click)="toggleList('statuses', s)">
+          {{ s | humanize }}
+        </button>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="grp">
+    <legend class="section-title">People &amp; organisation</legend>
+    <div class="field">
+      <label for="tf-assignee">Responsible</label>
+      <fu-person-picker inputId="tf-assignee" placeholder="Anyone" [formControl]="controls.assignedToId" />
+    </div>
+    <div class="field">
+      <label for="tf-delegator">Delegated by</label>
+      <fu-person-picker inputId="tf-delegator" placeholder="Anyone" [formControl]="controls.assignedById" />
+    </div>
+    <div class="field">
+      <span class="label" aria-hidden="true">Team</span>
+      <fu-team-picker ariaLabel="Team" emptyLabel="Any team" [formControl]="controls.teamId" />
+    </div>
+    <div class="field">
+      <label for="tf-department">Department</label>
+      <fu-lookup-select kind="department" selectId="tf-department" emptyLabel="Any department" [formControl]="controls.departmentId" />
+    </div>
+    <div class="field">
+      <label for="tf-project">Project</label>
+      <fu-lookup-select kind="project" selectId="tf-project" emptyLabel="Any project" [formControl]="controls.projectId" />
+    </div>
+  </fieldset>
+
+  <fieldset class="grp">
+    <legend class="section-title">Priority</legend>
+    <div class="chips" role="group" aria-label="Priority">
+      @for (p of priorityOptions; track p) {
+        <button type="button" class="chip selectable" [class.on]="selected().priorities.has(p)" [attr.aria-pressed]="selected().priorities.has(p)" (click)="toggleList('priorities', p)">
+          {{ p }}
+        </button>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="grp">
+    <legend class="section-title">Criticality</legend>
+    <div class="chips" role="group" aria-label="Criticality">
+      @for (c of criticalityOptions; track c) {
+        <button type="button" class="chip selectable" [class.on]="selected().criticalities.has(c)" [attr.aria-pressed]="selected().criticalities.has(c)" (click)="toggleList('criticalities', c)">
+          {{ c | humanize }}
+        </button>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="grp">
+    <legend class="section-title">Health</legend>
+    <div class="chips" role="group" aria-label="Health">
+      @for (h of healthOptions; track h) {
+        <button type="button" class="chip selectable" [class.on]="selected().health.has(h)" [attr.aria-pressed]="selected().health.has(h)" (click)="toggleList('health', h)">
+          <span class="dot tone-{{ healthTone(h) }}"></span> {{ h | humanize }}
+        </button>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="grp">
+    <legend class="section-title">Deadline</legend>
+    <div class="chips" role="group" aria-label="Deadline bucket">
+      @for (b of bucketOptions; track b) {
+        <button type="button" class="chip selectable" [class.on]="filter().bucket === b" [attr.aria-pressed]="filter().bucket === b" (click)="setBucket(b)">
+          {{ b | humanize }}
+        </button>
+      }
+    </div>
+    <div class="pair">
+      <div class="field">
+        <label for="tf-due-from">Due from</label>
+        <fu-date-input inputId="tf-due-from" [formControl]="controls.dueFrom" />
+      </div>
+      <div class="field">
+        <label for="tf-due-to">Due to</label>
+        <fu-date-input inputId="tf-due-to" [formControl]="controls.dueTo" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="tf-min-overdue">Overdue by at least (days)</label>
+      <input
+        id="tf-min-overdue"
+        class="input"
+        type="number"
+        min="0"
+        inputmode="numeric"
+        placeholder="Any"
+        [value]="filter().minDaysOverdue ?? ''"
+        (change)="setMinDaysOverdue($any($event.target).value)"
+      />
+    </div>
+  </fieldset>
+
+  <fieldset class="grp">
+    <legend class="section-title">Tag</legend>
+    <div class="field">
+      <label for="tf-tag" class="sr-only">Tag</label>
+      <input
+        id="tf-tag"
+        class="input"
+        list="tf-tag-options"
+        placeholder="Any tag"
+        autocomplete="off"
+        [value]="filter().tag ?? ''"
+        (change)="setTag($any($event.target).value)"
+      />
+      <datalist id="tf-tag-options">
+        @for (t of tags(); track t) {
+          <option [value]="t"></option>
+        }
+      </datalist>
+    </div>
+  </fieldset>
+
+  <fieldset class="grp">
+    <legend class="section-title">Only show</legend>
+    <div class="toggles">
+      @for (t of toggles; track t.key) {
+        <label class="switch">
+          <input type="checkbox" [checked]="filter()[t.key] === true" (change)="setToggle(t.key, $any($event.target).checked)" />
+          {{ t.label }}
+        </label>
+      }
+    </div>
+  </fieldset>
+</div>

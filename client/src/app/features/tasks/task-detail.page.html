@@ -1,0 +1,70 @@
+<div class="page">
+  @if (data.value(); as d) {
+    <fu-task-header [detail]="d" [following]="following()" [followBusy]="busy()" (toggleFollow)="toggleFollow()" />
+    <fu-quick-actions [detail]="d" [busy]="busy()" (action)="onAction($event)" />
+    <fu-task-banners [detail]="d" [busy]="busy()" (open)="dialog.set($event)" (accept)="acceptTask()" />
+
+    <fu-tabs [tabs]="tabs()" [active]="activeTab()" (activeChange)="selectTab($event)" ariaLabel="Task sections" />
+    <div class="tab-panel" role="tabpanel" [attr.aria-label]="activeTabLabel()">
+      @switch (activeTab()) {
+        @case ('subtasks') {
+          <fu-subtasks-tab [detail]="d" (reload)="load(true)" (openDelegate)="openSubtaskDialog()" />
+        }
+        @case ('timeline') {
+          <fu-timeline-tab [items]="d.timeline" />
+        }
+        @case ('communications') {
+          <fu-communications-tab [detail]="d" (reload)="load(true)" (open)="dialog.set($event)" />
+        }
+        @case ('completion') {
+          <fu-completion-tab [detail]="d" />
+        }
+        @case ('audit') {
+          <fu-audit-tab [entries]="audit.value()" [loading]="audit.loading()" [error]="audit.error()" (retry)="retryAudit()" />
+        }
+        @default {
+          <fu-overview-tab
+            [detail]="d"
+            [following]="following()"
+            [busy]="busy()"
+            (updated)="applyUpdate($event)"
+            (reload)="load(true)"
+            (open)="dialog.set($event)"
+            (toggleFollow)="toggleFollow()"
+            (resume)="resumeFollowUp()"
+          />
+        }
+      }
+    </div>
+
+    @if (dialog(); as request) {
+      <fu-task-dialogs [detail]="d" [request]="request" (updated)="applyUpdate($event)" (reload)="load(true)" (closed)="dialog.set(null)" />
+    }
+  } @else if (data.error()) {
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a routerLink="/tasks">Tasks</a></nav>
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <div class="spacer">
+        <div class="strong">This task couldn't be loaded</div>
+        <div class="small">{{ data.error() }}</div>
+      </div>
+      <button type="button" class="btn btn-sm" (click)="load(false)">Retry</button>
+      <a class="btn btn-sm btn-ghost" routerLink="/tasks">Back to tasks</a>
+    </div>
+  } @else {
+    <div class="loading" aria-busy="true" aria-label="Loading task">
+      <div class="skeleton" style="height: 12px; width: 160px"></div>
+      <div class="skeleton" style="height: 26px; width: min(560px, 80%)"></div>
+      <div class="row">
+        @for (w of [90, 70, 80, 60, 120]; track $index) {
+          <div class="skeleton" style="height: 20px" [style.width.px]="w"></div>
+        }
+      </div>
+      <div class="skeleton" style="height: 46px; width: 100%"></div>
+      <div class="cols">
+        <div class="card pad"><fu-skeleton [rows]="7" /></div>
+        <div class="card pad"><fu-skeleton [rows]="5" /></div>
+      </div>
+    </div>
+  }
+</div>

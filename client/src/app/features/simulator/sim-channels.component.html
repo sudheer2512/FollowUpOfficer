@@ -1,0 +1,129 @@
+<div class="toolbar">
+  <span class="small muted">Channel posts are imported by the Teams channel sync. Replies stay threaded under their root post.</span>
+  <span class="spacer"></span>
+  <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Refresh channels" (click)="reloadChannels()"><fu-icon name="refresh" /></button>
+</div>
+
+<div class="panes">
+  <section class="card list-pane" aria-label="Teams and channels">
+    @if (channels.loading() && !channels.value()) {
+      <fu-skeleton variant="table" [rows]="6" />
+    } @else if (channels.error()) {
+      <div class="card-body">
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" /> <span class="spacer">{{ channels.error() }}</span>
+          <button type="button" class="btn btn-sm" (click)="reloadChannels()">Retry</button>
+        </div>
+      </div>
+    } @else {
+      @for (g of groups(); track g.teamId) {
+        <div class="section-title team">{{ g.teamName }}</div>
+        <div class="list">
+          @for (c of g.channels; track c.channelId) {
+            <button type="button" class="list-row" [class.on]="key(c) === selectedKey()" [attr.aria-current]="key(c) === selectedKey() ? 'true' : null" (click)="selectedKey.set(key(c))">
+              <fu-icon name="hash" class="muted" />
+              <span class="main"><span class="title truncate">{{ c.displayName }}</span></span>
+            </button>
+          }
+        </div>
+      } @empty {
+        <fu-empty icon="hash" title="No channels" message="The emulated tenant has no teams with channels yet." [compact]="true" />
+      }
+    }
+  </section>
+
+  <section class="card read-pane" aria-label="Channel messages">
+    @if (selected(); as c) {
+      <header class="card-header">
+        <fu-icon name="hash" class="muted" />
+        <div class="titles-col">
+          <h2 class="truncate">{{ c.displayName }}</h2>
+          <div class="xsmall muted truncate">{{ c.teamName || c.teamId }}</div>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Refresh messages" (click)="reloadMessages()"><fu-icon name="refresh" /></button>
+      </header>
+      <div class="thread" aria-live="polite">
+        @if (messages.loading() && !messages.value()) {
+          <fu-skeleton [rows]="5" />
+        } @else if (messages.error()) {
+          <div class="alert tone-danger" role="alert">
+            <fu-icon name="alert-circle" /> <span class="spacer">{{ messages.error() }}</span>
+            <button type="button" class="btn btn-sm" (click)="reloadMessages()">Retry</button>
+          </div>
+        } @else {
+          @for (t of threads(); track t.root.id) {
+            <article class="post" [class.replying]="replyTo()?.id === t.root.id">
+              <div class="msg">
+                <fu-avatar [name]="senderOf(t.root)" />
+                <div class="bubble">
+                  <div class="meta">
+                    <span class="name">{{ senderOf(t.root) }}</span>
+                    <span [attr.title]="t.root.createdDateTime | dateTime">{{ t.root.createdDateTime | ago }}</span>
+                  </div>
+                  <div class="text pre">{{ t.root.text || '(empty message)' }}</div>
+                </div>
+              </div>
+              @if (t.replies.length) {
+                <div class="replies">
+                  @for (r of t.replies; track r.id) {
+                    <div class="msg">
+                      <fu-avatar [name]="senderOf(r)" size="sm" />
+                      <div class="bubble">
+                        <div class="meta">
+                          <span class="name">{{ senderOf(r) }}</span>
+                          <span [attr.title]="r.createdDateTime | dateTime">{{ r.createdDateTime | ago }}</span>
+                        </div>
+                        <div class="text pre">{{ r.text || '(empty message)' }}</div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+              <button type="button" class="btn btn-link small reply" (click)="startReply(t.root)">
+                <fu-icon name="corner-up-right" [size]="13" /> Reply{{ t.replies.length ? ' (' + t.replies.length + ')' : '' }}
+              </button>
+            </article>
+          } @empty {
+            <fu-empty icon="hash" title="No posts yet" message="Start a conversation below." [compact]="true" />
+          }
+        }
+      </div>
+      <form class="composer" (submit)="$event.preventDefault(); post()">
+        @if (replyTo(); as r) {
+          <div class="alert replying-to">
+            <fu-icon name="corner-up-right" />
+            <span class="spacer small truncate">Replying to <strong>{{ senderOf(r) }}</strong>: {{ r.text }}</span>
+            <button type="button" class="btn btn-ghost btn-icon btn-xs" aria-label="Cancel reply" (click)="replyTo.set(null)"><fu-icon name="x" [size]="13" /></button>
+          </div>
+        }
+        <div class="row">
+          <label for="sim-channel-poster" class="label">Post as</label>
+          <select id="sim-channel-poster" class="select input-sm" (change)="poster.set(value($event))">
+            @for (u of users(); track u.id) {
+              <option [value]="u.id" [selected]="u.id === poster()">{{ label(u) }}</option>
+            }
+          </select>
+        </div>
+        <label for="sim-channel-text" class="sr-only">{{ replyTo() ? 'Reply' : 'New post' }}</label>
+        <textarea
+          id="sim-channel-text"
+          class="textarea"
+          rows="2"
+          [placeholder]="replyTo() ? 'Write a reply… (Ctrl+Enter to send)' : 'Start a new post… (Ctrl+Enter to send)'"
+          [value]="text()"
+          (input)="text.set(value($event))"
+          (keydown)="onComposerKey($event)"
+        ></textarea>
+        <div class="row">
+          <span class="spacer"></span>
+          <button type="submit" class="btn btn-primary btn-sm" [disabled]="!text().trim() || !poster() || posting()">
+            <fu-icon name="send" /> {{ posting() ? 'Sending…' : replyTo() ? 'Reply' : 'Post' }}
+          </button>
+        </div>
+      </form>
+    } @else {
+      <fu-empty icon="hash" title="No channel selected" message="Pick a channel to read its threads and post as any member." />
+    }
+  </section>
+</div>

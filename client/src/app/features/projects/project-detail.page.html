@@ -1,0 +1,121 @@
+<div class="page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/projects">Projects</a>
+    <fu-icon name="chevron-right" [size]="12" />
+    <span>{{ summary()?.code ?? 'Project' }}</span>
+  </nav>
+
+  @if (data.loading() && !data.value()) {
+    <div class="stack-lg">
+      <fu-skeleton [rows]="3" />
+      <fu-skeleton variant="tiles" [rows]="7" />
+      <fu-skeleton variant="table" [rows]="6" />
+    </div>
+  } @else if (data.error() && !data.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <span class="spacer">{{ data.error() }}</span>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else if (summary(); as s) {
+    <div class="page-header">
+      <div class="titles">
+        <div class="row wrap">
+          <h1>{{ s.name }}</h1>
+          <fu-project-status [status]="s.status" />
+          <fu-health [value]="s.worstHealth" />
+          @if (!s.isActive) {
+            <span class="chip sm outline">Inactive</span>
+          }
+        </div>
+        <div class="head-meta">
+          <span class="task-number">{{ s.code }}</span>
+          <span class="row gap-4"><span class="lbl">Owner</span><fu-person [person]="s.owner" emptyText="No owner" /></span>
+          @if (s.department?.name) {
+            <span><span class="lbl">Department</span>{{ s.department?.name }}</span>
+          }
+          @if (s.startDate) {
+            <span><span class="lbl">Start</span>{{ s.startDate | dateOnly }}</span>
+          }
+          <span [class.text-danger]="targetMissed()" [class.strong]="targetMissed()">
+            <span class="lbl">Target</span>{{ s.targetDate ? (s.targetDate | dateOnly) : 'Not set' }}
+            @if (targetMissed()) {
+              · missed
+            }
+          </span>
+        </div>
+        @if (s.description) {
+          <p class="desc">{{ s.description }}</p>
+        }
+        <div class="progress-wide">
+          <div class="progress" [class]="progressClass()" role="progressbar" [attr.aria-valuenow]="percent()" aria-valuemin="0" aria-valuemax="100" aria-label="Project progress">
+            <span [style.width.%]="percent()"></span>
+          </div>
+          <span class="small"><span class="strong num">{{ percent() }}%</span> <span class="muted">· {{ s.completedTasks }} of {{ s.totalTasks }} tasks done</span></span>
+        </div>
+      </div>
+      <div class="actions">
+        @if (canManage()) {
+          <button type="button" class="btn" (click)="editOpen.set(true)"><fu-icon name="edit" [size]="15" /> Edit</button>
+        }
+        <button type="button" class="btn btn-primary" (click)="delegate()"><fu-icon name="send" [size]="15" /> Delegate in this project</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid mb-16">
+      @for (t of tiles(); track t.key) {
+        <fu-tile [tile]="t" />
+      }
+    </div>
+
+    <div class="grid-2 mb-16">
+      <section class="card">
+        <header class="card-header">
+          <h2>Blockers</h2>
+          <span class="count-pill" [class.danger]="blockers().length > 0">{{ blockers().length }}</span>
+        </header>
+        <div class="card-body flush">
+          <fu-task-list [tasks]="blockers()" [limit]="8" detail="blocked" emptyIcon="check-circle" emptyTitle="Nothing is blocked" emptyMessage="Blocked tasks in this project appear here with their reason." />
+        </div>
+      </section>
+      <section class="card">
+        <header class="card-header">
+          <h2>Commitments</h2>
+          <span class="count-pill">{{ commitments().length }}</span>
+        </header>
+        <div class="card-body flush">
+          <fu-commitment-table [commitments]="commitments()" [compact]="true" [limit]="8" />
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <header class="card-header">
+        <h2>Tasks</h2>
+        <span class="count-pill">{{ shownTasks().length }}</span>
+        <span class="spacer"></span>
+        <div class="segmented" role="group" aria-label="Which tasks to show">
+          <button type="button" [class.active]="!showAll()" [attr.aria-pressed]="!showAll()" (click)="showAll.set(false)">Open ({{ openTasks().length }})</button>
+          <button type="button" [class.active]="showAll()" [attr.aria-pressed]="showAll()" (click)="showAll.set(true)">All ({{ tasks().length }})</button>
+        </div>
+      </header>
+      <fu-task-table
+        [tasks]="shownTasks()"
+        [columns]="columns"
+        [loading]="data.loading()"
+        [emptyTitle]="showAll() ? 'No tasks in this project yet' : 'No open tasks'"
+        [emptyMessage]="showAll() ? 'Delegate a task in this project to get started.' : 'Everything in this project is closed.'"
+      />
+    </section>
+  } @else {
+    <div class="card">
+      <fu-empty icon="briefcase" title="Project not found" message="It may have been removed or you may not have access to it.">
+        <a class="btn btn-sm mt-8" routerLink="/projects">Back to projects</a>
+      </fu-empty>
+    </div>
+  }
+</div>
+
+@if (editOpen() && summary()) {
+  <fu-project-form [project]="summary()" (saved)="onSaved()" (closed)="editOpen.set(false)" />
+}

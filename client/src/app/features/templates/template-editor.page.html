@@ -1,0 +1,321 @@
+<div class="page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/templates">Templates</a>
+    <fu-icon name="chevron-right" [size]="12" />
+    <span class="truncate">{{ isNew() ? 'New template' : (data.value()?.name ?? 'Template') }}</span>
+  </nav>
+
+  @if (!isNew() && data.loading() && !data.value()) {
+    <div class="stack-lg">
+      <fu-skeleton [rows]="2" />
+      <fu-skeleton variant="table" [rows]="8" />
+    </div>
+  } @else if (!isNew() && data.error() && !data.value()) {
+    <div class="alert tone-danger" role="alert">
+      <fu-icon name="alert-circle" />
+      <span class="spacer">{{ data.error() }}</span>
+      <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+    </div>
+  } @else {
+    <div class="page-header">
+      <div class="titles">
+        <h1>{{ isNew() ? 'New template' : (data.value()?.name || 'Template') }}</h1>
+        <div class="subtitle">A reusable task tree: role placeholders become people and due offsets become dates when instantiated.</div>
+      </div>
+      <div class="actions">
+        @if (dirty()) {
+          <span class="chip sm tone-warning">Unsaved changes</span>
+        }
+        <a class="btn" routerLink="/templates">Back</a>
+        @if (!isNew() && data.value()) {
+          <button type="button" class="btn" [disabled]="!data.value()!.isActive" [attr.title]="data.value()!.isActive ? null : 'Activate and save the template first'" (click)="openInstantiate()">
+            <fu-icon name="play" [size]="15" /> Instantiate
+          </button>
+        }
+        <button type="submit" form="fu-template-form" class="btn btn-primary" [disabled]="saving()">
+          <fu-icon name="check" [size]="15" /> {{ saving() ? 'Saving…' : isNew() ? 'Create template' : 'Save' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="preview mb-16" role="status">
+      <fu-icon name="layers" [size]="15" />
+      <span class="strong">{{ previewText() }}</span>
+      <span class="spacer"></span>
+      @if (validation().errorCount > 0 && (submitted() || !isNew())) {
+        <span class="chip sm tone-danger"><fu-icon name="alert-circle" [size]="12" /> {{ validation().errorCount }} to fix</span>
+      } @else if (validation().valid) {
+        <span class="chip sm tone-good"><fu-icon name="check" [size]="12" /> Tree is valid</span>
+      }
+    </div>
+
+    <div class="top-grid mb-16">
+      <form id="fu-template-form" class="card" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <header class="card-header"><h2>Settings</h2></header>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="field">
+              <label for="tp-name" class="req">Name</label>
+              <input id="tp-name" class="input" formControlName="name" maxlength="200" placeholder="e.g. New market launch" />
+              @if (submitted() && form.controls.name.invalid) {
+                <span class="error">A name is required.</span>
+              }
+            </div>
+            <div class="field">
+              <label for="tp-cat" class="req">Category</label>
+              <input id="tp-cat" class="input" formControlName="category" maxlength="100" list="tp-cat-list" placeholder="e.g. Compliance" />
+              <datalist id="tp-cat-list">
+                @for (c of categorySuggestions(); track c) {
+                  <option [value]="c"></option>
+                }
+              </datalist>
+              @if (submitted() && form.controls.category.invalid) {
+                <span class="error">A category is required.</span>
+              }
+            </div>
+            <div class="field full">
+              <label for="tp-desc">Description</label>
+              <textarea id="tp-desc" class="textarea" rows="2" formControlName="description" placeholder="When to use this template and what it delivers"></textarea>
+            </div>
+            <div class="field">
+              <label for="tp-prio">Priority</label>
+              <select id="tp-prio" class="select" formControlName="priority">
+                @for (p of priorities; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label for="tp-crit">Criticality</label>
+              <select id="tp-crit" class="select" formControlName="criticality">
+                @for (c of criticalities; track c) {
+                  <option [value]="c">{{ c | humanize }}</option>
+                }
+              </select>
+            </div>
+            <div class="field full">
+              <label for="tp-policy">Escalation policy</label>
+              <fu-lookup-select kind="policy" formControlName="escalationPolicyId" selectId="tp-policy" emptyLabel="Default policy" />
+            </div>
+            <div class="field full">
+              <span class="label">Follow-up</span>
+              <fu-follow-up-picker formControlName="followUp" [showUntil]="false" />
+            </div>
+            <div class="field">
+              <label class="switch"><input type="checkbox" formControlName="requiresApproval" /> Requires approval</label>
+              <span class="hint">Completion must be confirmed by the approval flow.</span>
+            </div>
+            <div class="field">
+              <label class="switch"><input type="checkbox" formControlName="isActive" /> Active</label>
+              <span class="hint">Inactive templates cannot be instantiated.</span>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="stack-lg">
+        <section class="card">
+          <header class="card-header">
+            <h2>Roles</h2>
+            <span class="count-pill">{{ roles().length }}</span>
+          </header>
+          <div class="card-body stack">
+            <p class="small muted">Placeholders replaced by people when the template is instantiated, e.g. “Owner”, “QA Lead”.</p>
+            <div class="row wrap gap-4">
+              @for (r of roles(); track r) {
+                <span class="chip" [attr.title]="roleUsage(r) + ' item(s) use this role'">
+                  {{ r }}
+                  <span class="xsmall muted num">{{ roleUsage(r) }}</span>
+                  <button type="button" class="x" [attr.aria-label]="'Remove role ' + r" (click)="removeRole(r)"><fu-icon name="x" [size]="12" /></button>
+                </span>
+              } @empty {
+                <span class="small muted">No roles yet.</span>
+              }
+            </div>
+            <div class="input-group">
+              <input class="input input-sm" aria-label="New role" placeholder="Add a role…" maxlength="60" [value]="roleInput()" (input)="roleInput.set($any($event.target).value)" (keydown)="onRoleKey($event)" />
+              <button type="button" class="btn btn-sm" [disabled]="!roleInput().trim()" (click)="addRole()"><fu-icon name="plus" [size]="14" /> Add</button>
+            </div>
+          </div>
+        </section>
+
+        @if (requiresApproval()) {
+          <section class="card">
+            <header class="card-header">
+              <h2>Approval flow</h2>
+              <span class="count-pill">{{ approvalFlow().length }}</span>
+            </header>
+            <div class="card-body stack">
+              @if (approvalFlow().length) {
+                <ol class="flow">
+                  @for (r of approvalFlow(); track r; let i = $index, first = $first, last = $last) {
+                    <li>
+                      <span class="step num">{{ i + 1 }}</span>
+                      <span class="spacer">{{ r | humanize }}</span>
+                      <button type="button" class="btn btn-ghost btn-icon btn-xs" [disabled]="first" [attr.aria-label]="'Move ' + r + ' up'" (click)="moveApprover(i, -1)"><fu-icon name="arrow-up" [size]="13" /></button>
+                      <button type="button" class="btn btn-ghost btn-icon btn-xs" [disabled]="last" [attr.aria-label]="'Move ' + r + ' down'" (click)="moveApprover(i, 1)"><fu-icon name="arrow-down" [size]="13" /></button>
+                      <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Remove ' + r" (click)="removeApprover(i)"><fu-icon name="x" [size]="13" /></button>
+                    </li>
+                  }
+                </ol>
+              } @else {
+                <p class="small muted">No approvers yet — the delegator confirms completion.</p>
+              }
+              @if (availableApprovers().length) {
+                <select #approverSelect class="select input-sm" aria-label="Add approver" (change)="addApprover(approverSelect)">
+                  <option value="">Add an approver…</option>
+                  @for (r of availableApprovers(); track r) {
+                    <option [value]="r">{{ r | humanize }}</option>
+                  }
+                </select>
+              }
+            </div>
+          </section>
+        }
+      </div>
+    </div>
+
+    <section class="card">
+      <header class="card-header">
+        <h2>Items</h2>
+        <span class="count-pill">{{ items().length }}</span>
+        <span class="desc">Children are indented under their parent. Due offsets count working days from the anchor date.</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-sm" (click)="addItem()"><fu-icon name="plus" [size]="14" /> Add item</button>
+      </header>
+
+      @if (rows().length) {
+        <div class="ti-head" aria-hidden="true">
+          <span>Key</span><span>Title</span><span>Assignee role</span><span>Due (+wd)</span><span>Criticality</span><span></span>
+        </div>
+      }
+      <div class="ti-list">
+        @for (row of rows(); track row.item.uid) {
+          <div class="ti-row" [class.child]="row.depth > 0" [class.invalid]="row.messages.length > 0" [style.--depth]="row.depth">
+            <div class="ti-line1">
+              <input
+                class="input input-sm mono"
+                [id]="'ti-key-' + row.item.uid"
+                [attr.aria-label]="'Key of ' + (row.item.title || 'item')"
+                placeholder="Key"
+                maxlength="40"
+                [value]="row.item.key"
+                (input)="patchItem(row.item.uid, { key: $any($event.target).value })"
+              />
+              <input
+                class="input input-sm"
+                [id]="'ti-title-' + row.item.uid"
+                [attr.aria-label]="'Title of ' + (row.item.key || 'item')"
+                placeholder="Task title"
+                maxlength="300"
+                [value]="row.item.title"
+                (input)="patchItem(row.item.uid, { title: $any($event.target).value })"
+              />
+              <select class="select input-sm" [attr.aria-label]="'Assignee role of ' + (row.item.key || 'item')" (change)="patchItem(row.item.uid, { assigneeRole: $any($event.target).value })">
+                <option value="" [selected]="!row.item.assigneeRole">No role</option>
+                @for (r of roles(); track r) {
+                  <option [value]="r" [selected]="r === row.item.assigneeRole">{{ r }}</option>
+                }
+                @if (row.issues.assigneeRole) {
+                  <option [value]="row.item.assigneeRole" selected>{{ row.item.assigneeRole }} (not a role)</option>
+                }
+              </select>
+              <input
+                class="input input-sm num"
+                type="number"
+                min="0"
+                step="1"
+                [attr.aria-label]="'Due offset in working days for ' + (row.item.key || 'item')"
+                [value]="row.item.dueOffsetWorkingDays"
+                (change)="setOffset(row.item, $any($event.target).value)"
+              />
+              <select class="select input-sm" [attr.aria-label]="'Criticality of ' + (row.item.key || 'item')" (change)="patchItem(row.item.uid, { criticality: $any($event.target).value })">
+                <option value="" [selected]="!row.item.criticality">Template default</option>
+                @for (c of criticalities; track c) {
+                  <option [value]="c" [selected]="c === row.item.criticality">{{ c | humanize }}</option>
+                }
+              </select>
+              <div class="ti-acts">
+                <button type="button" class="btn btn-ghost btn-icon btn-sm" [attr.aria-label]="'Add child under ' + (row.item.key || 'item')" title="Add child" (click)="addItem(row.item)">
+                  <fu-icon name="corner-up-right" [size]="15" />
+                </button>
+                <button type="button" class="btn btn-ghost btn-icon btn-sm" [attr.aria-label]="'Remove ' + (row.item.key || 'item')" title="Remove" (click)="removeItem(row.item)">
+                  <fu-icon name="trash" [size]="15" />
+                </button>
+              </div>
+            </div>
+
+            <div class="ti-line2">
+              <label class="ti-inline">
+                <span class="xsmall muted">Parent</span>
+                <select class="select input-sm" [attr.aria-label]="'Parent of ' + (row.item.key || 'item')" (change)="setParent(row.item, $any($event.target).value)">
+                  <option value="" [selected]="row.item.parentUid === null && !row.item.danglingParent">None (top level)</option>
+                  @if (row.item.danglingParent) {
+                    <option value="" selected disabled>{{ row.item.danglingParent }} (missing)</option>
+                  }
+                  @for (o of row.parentOptions; track o.uid) {
+                    <option [value]="o.uid" [selected]="o.uid === row.item.parentUid">{{ depLabel(o) }}</option>
+                  }
+                </select>
+              </label>
+              <div class="ti-deps">
+                <span class="xsmall muted">Depends on</span>
+                @for (d of row.dependencies; track d.uid) {
+                  <span class="chip sm">
+                    <span class="mono">{{ depLabel(d) }}</span>
+                    <button type="button" class="x" [attr.aria-label]="'Remove dependency ' + depLabel(d)" (click)="removeDependency(row.item, d.uid)"><fu-icon name="x" [size]="11" /></button>
+                  </span>
+                }
+                @for (k of row.item.danglingDeps; track k) {
+                  <span class="chip sm tone-danger mono" title="No item has this key">{{ k }}</span>
+                }
+                @if (row.item.danglingDeps.length) {
+                  <button type="button" class="btn btn-link xsmall" (click)="clearDanglingDeps(row.item)">Remove unknown</button>
+                }
+                @if (row.dependencyOptions.length) {
+                  <select #depSelect class="select input-sm dep-add" [attr.aria-label]="'Add dependency for ' + (row.item.key || 'item')" (change)="addDependency(row.item, depSelect)">
+                    <option value="">Add…</option>
+                    @for (o of row.dependencyOptions; track o.uid) {
+                      <option [value]="o.uid">{{ depLabel(o) }}</option>
+                    }
+                  </select>
+                }
+              </div>
+              <input
+                class="input input-sm"
+                [attr.aria-label]="'Description of ' + (row.item.key || 'item')"
+                placeholder="Description (optional)"
+                [value]="row.item.description"
+                (input)="patchItem(row.item.uid, { description: $any($event.target).value })"
+              />
+            </div>
+
+            @if (row.messages.length) {
+              <ul class="ti-errors" role="alert">
+                @for (m of row.messages; track m) {
+                  <li><fu-icon name="alert-circle" [size]="12" /> {{ m }}</li>
+                }
+              </ul>
+            }
+            @if (row.warning) {
+              <div class="ti-warn"><fu-icon name="alert-triangle" [size]="12" /> {{ row.warning }}</div>
+            }
+          </div>
+        } @empty {
+          <fu-empty icon="list" title="No items yet" message="Add the tasks this template creates. Nest sub-tasks with “Add child”.">
+            <button type="button" class="btn btn-sm mt-8" (click)="addItem()"><fu-icon name="plus" [size]="14" /> Add item</button>
+          </fu-empty>
+        }
+      </div>
+      @if (rows().length) {
+        <div class="card-footer">
+          <button type="button" class="btn btn-sm btn-ghost" (click)="addItem()"><fu-icon name="plus" [size]="14" /> Add top-level item</button>
+        </div>
+      }
+    </section>
+  }
+</div>
+
+@if (instantiateOpen() && data.value(); as t) {
+  <fu-instantiate-template-dialog [template]="t" (closed)="instantiateOpen.set(false)" />
+}

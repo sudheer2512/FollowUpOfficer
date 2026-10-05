@@ -1,0 +1,14 @@
+.grow { flex: 1; min-width: 0; }
+.toolbar { flex-wrap: wrap; }
+.search { flex: 1 1 240px; max-width: 360px; }
+.segmented .count { margin-left: 4px; color: var(--subtle); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.row-link { cursor: pointer; }
+.row-link:hover > td { background: var(--surface-hover); }
+.title-cell { max-width: 320px; }
+.ttl { font-weight: 600; color: var(--text); }
+.sched { max-width: 300px; }
+.team { margin-left: 30px; }
+.comp { display: inline-flex; align-items: center; gap: 8px; }
+.comp .progress { width: 72px; }
+.kpi.static { cursor: default; }
+.kpi.static:hover { border-color: var(--border); box-shadow: none; transform: none; }

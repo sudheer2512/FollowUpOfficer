@@ -1,0 +1,82 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Attention required</h1>
+      <div class="subtitle">
+        @if (data.value()) {
+          @if (activeStatus() === 'All') {
+            {{ all().length }} item{{ all().length === 1 ? '' : 's' }} · {{ openCount() }} open
+          } @else {
+            {{ all().length }} {{ statusLabel(activeStatus()).toLowerCase() }}
+          }
+          @if (criticalCount() > 0) {
+            · <span class="text-danger strong" [attr.title]="'Attention score ' + criticalScore + ' or more'">{{ criticalCount() }} critical</span>
+          }
+        } @else {
+          Exceptions ranked by how much they need you
+        }
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Refresh attention list" title="Refresh" [disabled]="data.loading()" (click)="reload()">
+        <fu-icon name="refresh" />
+      </button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="Status">
+      @for (s of statusFilters; track s) {
+        <button type="button" [class.active]="s === activeStatus()" [attr.aria-pressed]="s === activeStatus()" (click)="setStatus(s)">
+          {{ statusLabel(s) }}
+        </button>
+      }
+    </div>
+    <div class="input-with-icon search">
+      <fu-icon name="search" [size]="15" />
+      <input class="input" type="search" placeholder="Filter by title, task or person" aria-label="Filter attention items" [value]="text()" (input)="onText($event)" />
+    </div>
+    <span class="spacer"></span>
+    <div class="segmented" role="group" aria-label="Sort">
+      <button type="button" [class.active]="sort() === 'score'" [attr.aria-pressed]="sort() === 'score'" (click)="sort.set('score')">Highest score</button>
+      <button type="button" [class.active]="sort() === 'newest'" [attr.aria-pressed]="sort() === 'newest'" (click)="sort.set('newest')">Newest</button>
+    </div>
+  </div>
+
+  @if (typeCounts().length > 1) {
+    <div class="types" role="group" aria-label="Filter by type">
+      @for (t of typeCounts(); track t.type) {
+        <button type="button" class="chip selectable" [class.on]="isTypeOn(t.type)" [attr.aria-pressed]="isTypeOn(t.type)" (click)="toggleType(t.type)">
+          <fu-icon [name]="t.icon" [size]="12" />
+          {{ t.label }}
+          <span class="num cnt">{{ t.count }}</span>
+        </button>
+      }
+      @if (hasFilters()) {
+        <button type="button" class="btn btn-link small" (click)="clearFilters()">Clear filters</button>
+      }
+    </div>
+  }
+
+  <section class="card list-card" aria-label="Attention items">
+    @if (data.loading() && !data.value()) {
+      <fu-skeleton variant="table" [rows]="7" />
+    } @else if (data.error() && !data.value()) {
+      <div class="card-body">
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" />
+          <div class="spacer">{{ data.error() }}</div>
+          <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+        </div>
+      </div>
+    } @else if (all().length && !filtered().length) {
+      <fu-empty icon="filter" title="No items match your filters" message="Try another type or clear the text filter.">
+        <button type="button" class="btn btn-sm mt-8" (click)="clearFilters()">Clear filters</button>
+      </fu-empty>
+    } @else if (!all().length && activeStatus() !== 'Open' && activeStatus() !== 'All') {
+      <fu-empty icon="inbox" [title]="'No ' + statusLabel(activeStatus()).toLowerCase() + ' items'" message="Items you resolve, dismiss or snooze are listed under their status." />
+    } @else {
+      <fu-attention-list [items]="filtered()" (changed)="reload(true)" />
+    }
+  </section>
+</div>

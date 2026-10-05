@@ -1,0 +1,196 @@
+<section class="card">
+  <header class="card-header">
+    <h2>Employees</h2>
+    <span class="count-pill">{{ filtered().length }}</span>
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Refresh employees" (click)="reload()">
+      <fu-icon name="refresh" />
+    </button>
+    <button type="button" class="btn btn-primary btn-sm" (click)="editing.set('new')"><fu-icon name="user-plus" /> New employee</button>
+  </header>
+
+  <div class="filters" role="search">
+    <div class="input-with-icon search">
+      <fu-icon name="search" />
+      <input
+        class="input input-sm"
+        type="search"
+        placeholder="Name, email, code, title or username…"
+        aria-label="Search employees"
+        [value]="query()"
+        (input)="setQuery($event)"
+      />
+    </div>
+    <select class="select input-sm" aria-label="Department" (change)="setDepartment($event)">
+      <option value="" [selected]="!departmentId()">All departments</option>
+      @for (d of departments(); track d.id) {
+        <option [value]="d.id" [selected]="d.id === departmentId()">{{ d.name }}</option>
+      }
+    </select>
+    <select class="select input-sm" aria-label="Role" (change)="setRole($event)">
+      <option value="" [selected]="!role()">Any role</option>
+      @for (r of roleValues; track r) {
+        <option [value]="r" [selected]="r === role()">{{ r | humanize }}</option>
+      }
+    </select>
+    <div class="segmented" role="group" aria-label="Employee status">
+      <button type="button" [class.active]="status() === 'active'" [attr.aria-pressed]="status() === 'active'" (click)="setStatus('active')">Active</button>
+      <button type="button" [class.active]="status() === 'inactive'" [attr.aria-pressed]="status() === 'inactive'" (click)="setStatus('inactive')">Inactive</button>
+      <button type="button" [class.active]="status() === 'all'" [attr.aria-pressed]="status() === 'all'" (click)="setStatus('all')">All</button>
+    </div>
+    @if (hasFilters()) {
+      <button type="button" class="btn btn-ghost btn-sm" (click)="clearFilters()">Clear</button>
+    }
+  </div>
+
+  <div class="card-body flush">
+    @if (data.loading() && !data.value()) {
+      <fu-skeleton variant="table" [rows]="8" />
+    } @else if (data.error()) {
+      <div class="card-body">
+        <div class="alert tone-danger" role="alert">
+          <fu-icon name="alert-circle" /> <span class="spacer">{{ data.error() }}</span>
+          <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+        </div>
+      </div>
+    } @else if (!filtered().length) {
+      <fu-empty
+        icon="users"
+        [title]="hasFilters() ? 'No employees match' : 'No employees yet'"
+        [message]="hasFilters() ? 'Try clearing a filter.' : 'Add people so work can be delegated to them.'"
+      />
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Employee</th>
+              <th>Job title</th>
+              <th>Department</th>
+              <th>Manager</th>
+              <th>Teams</th>
+              <th>Roles</th>
+              <th>Login</th>
+              <th>Channels</th>
+              <th><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of visible(); track e.id) {
+              <tr
+                class="clickable"
+                tabindex="0"
+                [class.inactive]="!e.isActive"
+                [attr.aria-label]="'Edit ' + e.displayName"
+                (click)="editing.set(e)"
+                (keydown.enter)="editing.set(e)"
+              >
+                <td class="mono nowrap">{{ e.employeeCode }}</td>
+                <td>
+                  <div class="row">
+                    <fu-avatar [name]="e.displayName" size="sm" />
+                    <span class="who">
+                      <span class="strong truncate">{{ e.displayName }}</span>
+                      <span class="xsmall muted truncate">{{ e.email }}</span>
+                    </span>
+                  </div>
+                </td>
+                <td class="small">{{ e.jobTitle || '—' }}</td>
+                <td class="small">{{ e.department?.name ?? '—' }}</td>
+                <td><fu-person [person]="e.manager" emptyText="—" /></td>
+                <td>
+                  <div class="chips">
+                    @for (t of e.teams.slice(0, maxTeams); track t.id) {
+                      <span class="chip sm">{{ t.name }}</span>
+                    } @empty {
+                      <span class="muted small">—</span>
+                    }
+                    @if (e.teams.length > maxTeams) {
+                      <span class="chip sm outline" [attr.title]="moreTeams(e)">
+                        +{{ e.teams.length - maxTeams }}
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <div class="chips">
+                    @for (r of rolesOf(e); track r) {
+                      <span
+                        class="chip sm"
+                        [class.tone-accent]="r === 'Executive'"
+                        [class.tone-danger]="r === 'Administrator'"
+                        [class.tone-info]="r === 'TeamLeader' || r === 'SeniorManager'"
+                      >{{ r | humanize }}</span>
+                    } @empty {
+                      <span class="muted small">—</span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  @if (e.hasLogin) {
+                    <div class="login">
+                      <div class="row gap-4">
+                        <span class="mono small">{{ e.userName }}</span>
+                        <span class="badge" [class.tone-good]="e.loginEnabled">{{ e.loginEnabled ? 'Enabled' : 'Disabled' }}</span>
+                      </div>
+                      <span class="xsmall muted">{{ e.lastLoginAt ? 'Last sign-in ' + (e.lastLoginAt | ago) : 'Never signed in' }}</span>
+                    </div>
+                  } @else {
+                    <span class="muted small">No login</span>
+                  }
+                </td>
+                <td>
+                  <div class="chips">
+                    @for (c of channelsOf(e); track c) {
+                      <span class="chip sm outline">{{ c | humanize }}</span>
+                    } @empty {
+                      <span class="muted small">—</span>
+                    }
+                  </div>
+                </td>
+                <td class="actions">
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-icon btn-xs"
+                    [attr.aria-label]="'Edit ' + e.displayName"
+                    title="Edit profile"
+                    (click)="editing.set(e); $event.stopPropagation()"
+                  >
+                    <fu-icon name="edit" [size]="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-icon btn-xs"
+                    [attr.aria-label]="'Account for ' + e.displayName"
+                    title="Login, roles and password"
+                    (click)="account.set(e); $event.stopPropagation()"
+                  >
+                    <fu-icon name="lock" [size]="14" />
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (filtered().length > pageSize) {
+        <div class="card-footer">
+          <fu-paginator class="spacer" [page]="page()" [pageSize]="pageSize" [total]="filtered().length" (pageChange)="page.set($event)" />
+        </div>
+      }
+    }
+  </div>
+</section>
+
+@if (editing(); as e) {
+  <fu-employee-edit-modal
+    [employee]="e === 'new' ? null : e"
+    (saved)="onProfileSaved($event, e === 'new')"
+    (closed)="editing.set(null)"
+  />
+}
+
+@if (account(); as a) {
+  <fu-employee-account-modal [employee]="a" (saved)="onAccountSaved($event)" (closed)="account.set(null)" />
+}

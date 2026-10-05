@@ -1,0 +1,365 @@
+<fu-modal
+  [title]="dialogTitle"
+  subtitle="Say what you need — FollowUp Officer fills in the details and follows up for you."
+  size="xl"
+  [dismissOnScrim]="false"
+  (closed)="requestClose()"
+>
+  <div class="dlg">
+    <!-- ── Natural language / voice ── -->
+    <section class="nl" [class.listening]="speech.listening()">
+      <label for="dlg-nl" class="nl-label"><fu-icon name="sparkles" [size]="14" /> Describe the task in your own words</label>
+      <div class="nl-box">
+        <textarea
+          id="dlg-nl"
+          class="textarea nl-input"
+          rows="2"
+          aria-describedby="dlg-nl-status"
+          [placeholder]="example"
+          [value]="nlText()"
+          (input)="onNlInput($any($event.target).value)"
+          (keydown)="onNlKey($event)"
+        ></textarea>
+        <div class="nl-actions">
+          <button
+            type="button"
+            class="btn btn-icon mic"
+            [class.on]="speech.listening()"
+            [disabled]="!speech.supported"
+            [attr.aria-pressed]="speech.listening()"
+            [attr.aria-label]="speech.listening() ? 'Stop listening' : 'Speak the task'"
+            [attr.title]="speech.supported ? (speech.listening() ? 'Stop listening' : 'Speak the task') : 'Voice input is not supported in this browser'"
+            (click)="speech.toggle()"
+          >
+            <fu-icon [name]="speech.listening() ? 'mic-off' : 'mic'" />
+          </button>
+          <button type="button" class="btn btn-primary" [disabled]="!nlText().trim() || parsing()" (click)="interpret()">
+            <fu-icon name="sparkles" /> {{ parsing() ? 'Interpreting…' : 'Interpret' }}
+          </button>
+        </div>
+      </div>
+      <div id="dlg-nl-status" class="nl-status" aria-live="polite">
+        @if (speech.listening()) {
+          <span class="listening-text"><span class="dot tone-danger pulse"></span> Listening… <span class="muted">{{ speech.interim() }}</span></span>
+        } @else if (!speech.supported) {
+          <span class="hint">Voice input is not supported in this browser — type instead.</span>
+        } @else if (speech.error()) {
+          <span class="hint text-warning">{{ speech.error() }}</span>
+        } @else {
+          <span class="hint">Ctrl+Enter to interpret — or fill in the form below directly.</span>
+        }
+      </div>
+    </section>
+
+    @if (resolved(); as r) {
+      <fu-interpreted-draft [resolved]="r" (pickPerson)="focusPrimary()" (dismissed)="resolved.set(null)" />
+    }
+
+    <div class="mode-bar">
+      <h3 class="section-title">{{ mode() === 'recurring' ? 'Recurring task' : isSubtask ? 'Subtask details' : 'Task details' }}</h3>
+      <span class="spacer"></span>
+      @if (!isSubtask) {
+        <label class="switch small">
+          <input type="checkbox" [checked]="mode() === 'recurring'" (change)="setMode($any($event.target).checked ? 'recurring' : 'task')" />
+          Recurring
+        </label>
+      }
+    </div>
+
+    @if (problems().length) {
+      <div class="alert tone-warning" role="alert">
+        <fu-icon name="alert-triangle" />
+        <ul class="problems">
+          @for (p of problems(); track p) {
+            <li>{{ p }}</li>
+          }
+        </ul>
+      </div>
+    }
+
+    @if (mode() === 'task') {
+      <div class="layout">
+        <form class="main" [formGroup]="taskForm" (keydown)="onFormKey($event)" novalidate>
+          <!-- Essentials -->
+          <section class="sec essentials" aria-label="Essentials">
+            <div class="sec-body form-grid">
+              <div class="field full">
+                <label for="dlg-title" class="req">Title</label>
+                <input id="dlg-title" class="input" formControlName="title" maxlength="300" autocomplete="off" placeholder="e.g. Finish the dealer CRM screens" />
+              </div>
+              <div class="field">
+                <label for="dlg-primary">Primary responsible</label>
+                <fu-person-picker formControlName="primaryAssigneeId" inputId="dlg-primary" />
+              </div>
+              <div class="field">
+                <label for="dlg-also">Additional assignees</label>
+                <fu-person-picker formControlName="additionalAssigneeIds" [multiple]="true" inputId="dlg-also" [excludeIds]="primaryExclude()" placeholder="Add people…" />
+              </div>
+              <div class="field full">
+                <span class="label">Teams</span>
+                <fu-team-picker formControlName="teamIds" [multiple]="true" ariaLabel="Teams" />
+                @if (task().teamIds.length) {
+                  <div class="row wrap mt-4">
+                    <label class="check small"><input type="checkbox" formControlName="includeTeamLeader" /> Include the team leader{{ task().teamIds.length > 1 ? 's' : '' }}</label>
+                    @if (!task().primaryAssigneeId) {
+                      <span class="hint">No person picked: the team leader becomes responsible.</span>
+                    }
+                  </div>
+                }
+              </div>
+              <div class="field">
+                <label for="dlg-due">Due date</label>
+                <fu-date-input formControlName="dueDate" inputId="dlg-due" [quickPicks]="true" [min]="task().startDate" />
+              </div>
+              <div class="field">
+                <label for="dlg-due-time">Due time <span class="muted">(optional)</span></label>
+                <input id="dlg-due-time" class="input" type="time" formControlName="dueTime" />
+                @if (task().dueTime && !task().dueDate) {
+                  <span class="hint">Applies once a due date is picked.</span>
+                }
+              </div>
+              <div class="field">
+                <label for="dlg-priority">Priority</label>
+                <select id="dlg-priority" class="select" formControlName="priority">
+                  @for (p of priorities; track p) {
+                    <option [value]="p">{{ p | humanize }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label for="dlg-crit">Criticality</label>
+                <select id="dlg-crit" class="select" formControlName="criticality">
+                  @for (c of criticalities; track c) {
+                    <option [value]="c">{{ c | humanize }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <!-- Details -->
+          <details class="sec" [open]="isOpen('details')" (toggle)="onToggle('details', $event)">
+            <summary><span class="sec-title">Details</span><span class="sec-sum">{{ summaries().details }}</span></summary>
+            <div class="sec-body form-grid">
+              <div class="field full">
+                <label for="dlg-desc">Description</label>
+                <textarea id="dlg-desc" class="textarea" rows="3" formControlName="description" placeholder="Context the team needs"></textarea>
+              </div>
+              <div class="field">
+                <label for="dlg-obj">Objective</label>
+                <textarea id="dlg-obj" class="textarea" rows="2" formControlName="objective" placeholder="Why this matters"></textarea>
+              </div>
+              <div class="field">
+                <label for="dlg-result">Expected result</label>
+                <textarea id="dlg-result" class="textarea" rows="2" formControlName="expectedResult" placeholder="What done looks like"></textarea>
+              </div>
+              <div class="field">
+                <label for="dlg-deliverable">Deliverable</label>
+                <textarea id="dlg-deliverable" class="textarea" rows="2" formControlName="deliverable" placeholder="What will be handed over"></textarea>
+              </div>
+              <div class="field">
+                <label for="dlg-success">Success criteria</label>
+                <textarea id="dlg-success" class="textarea" rows="2" formControlName="successCriteria" placeholder="How it will be judged"></textarea>
+              </div>
+            </div>
+          </details>
+
+          <!-- People -->
+          <details class="sec" [open]="isOpen('people')" (toggle)="onToggle('people', $event)">
+            <summary><span class="sec-title">People</span><span class="sec-sum">{{ summaries().people }}</span></summary>
+            <div class="sec-body form-grid">
+              <div class="field full">
+                <label for="dlg-support">Supporting members</label>
+                <fu-person-picker formControlName="supportingMemberIds" [multiple]="true" inputId="dlg-support" placeholder="Who helps…" />
+              </div>
+              <div class="field full">
+                <label for="dlg-followers">Followers</label>
+                <fu-person-picker formControlName="followerIds" [multiple]="true" inputId="dlg-followers" placeholder="Who is kept informed…" />
+                <span class="hint">Followers see progress and updates but are not responsible.</span>
+              </div>
+              <div class="field">
+                <label for="dlg-accountable">Accountable manager</label>
+                <fu-person-picker formControlName="accountableManagerId" inputId="dlg-accountable" />
+              </div>
+            </div>
+          </details>
+
+          <!-- Classification -->
+          <details class="sec" [open]="isOpen('classification')" (toggle)="onToggle('classification', $event)">
+            <summary><span class="sec-title">Classification</span><span class="sec-sum">{{ summaries().classification }}</span></summary>
+            <div class="sec-body form-grid">
+              <div class="field">
+                <label for="dlg-dept">Department</label>
+                <fu-lookup-select kind="department" formControlName="departmentId" selectId="dlg-dept" emptyLabel="No department" />
+              </div>
+              <div class="field">
+                <label for="dlg-proj">Project</label>
+                <fu-lookup-select kind="project" formControlName="projectId" selectId="dlg-proj" emptyLabel="No project" />
+              </div>
+              <div class="field">
+                <label for="dlg-cat">Category</label>
+                <fu-lookup-select kind="category" formControlName="categoryId" selectId="dlg-cat" emptyLabel="No category" />
+              </div>
+              <div class="field">
+                <label for="dlg-vis">Visibility</label>
+                <select id="dlg-vis" class="select" formControlName="visibility">
+                  @for (x of visibilities; track x) {
+                    <option [value]="x">{{ x | humanize }}</option>
+                  }
+                </select>
+                @if (visibilityHint()) {
+                  <span class="hint">{{ visibilityHint() }}</span>
+                }
+              </div>
+              <div class="field full">
+                <label for="dlg-tags">Tags</label>
+                <fu-tag-input formControlName="tags" inputId="dlg-tags" />
+              </div>
+            </div>
+          </details>
+
+          <!-- Dates -->
+          <details class="sec" [open]="isOpen('dates')" (toggle)="onToggle('dates', $event)">
+            <summary><span class="sec-title">Dates</span><span class="sec-sum">{{ summaries().dates }}</span></summary>
+            <div class="sec-body form-grid-3">
+              <div class="field">
+                <label for="dlg-start">Start date</label>
+                <fu-date-input formControlName="startDate" inputId="dlg-start" />
+              </div>
+              <div class="field">
+                <label for="dlg-hard">Hard deadline</label>
+                <fu-date-input formControlName="hardDeadline" inputId="dlg-hard" [min]="task().dueDate" />
+                <span class="hint">The date that cannot move.</span>
+              </div>
+              <div class="field">
+                <label for="dlg-review">Review date</label>
+                <fu-date-input formControlName="reviewDate" inputId="dlg-review" />
+                <span class="hint">When you want to look at it again.</span>
+              </div>
+            </div>
+          </details>
+
+          <!-- Follow-up -->
+          <details class="sec" [open]="isOpen('followUp')" (toggle)="onToggle('followUp', $event)">
+            <summary><span class="sec-title">Follow-up</span><span class="sec-sum">{{ summaries().followUp }}</span></summary>
+            <div class="sec-body stack">
+              <fu-follow-up-picker formControlName="followUp" />
+              <p class="hint">FollowUp Officer chases the assignees on this schedule, so you don't have to.</p>
+            </div>
+          </details>
+
+          <!-- Controls -->
+          <details class="sec" [open]="isOpen('controls')" (toggle)="onToggle('controls', $event)">
+            <summary><span class="sec-title">Controls</span><span class="sec-sum">{{ summaries().controls }}</span></summary>
+            <div class="sec-body form-grid">
+              <label class="switch full"><input type="checkbox" formControlName="notifyCeoOnDelay" /> Tell me if it gets delayed</label>
+              <div class="field">
+                <label for="dlg-approval">Completion approval</label>
+                <select id="dlg-approval" class="select" formControlName="requiresApproval">
+                  <option [ngValue]="null">Default</option>
+                  <option [ngValue]="true">Required</option>
+                  <option [ngValue]="false">Not required</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="dlg-ack">Acknowledgement</label>
+                <select id="dlg-ack" class="select" formControlName="requiresAcknowledgement">
+                  <option [ngValue]="null">Automatic (by criticality)</option>
+                  <option [ngValue]="true">Required</option>
+                  <option [ngValue]="false">Not required</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="switch"><input type="checkbox" formControlName="customerImpact" /> Customer impact</label>
+                @if (task().customerImpact) {
+                  <input class="input mt-4" formControlName="customerName" aria-label="Customer name" placeholder="Customer name" />
+                }
+              </div>
+              <div class="field">
+                <label for="dlg-fin">Financial impact (₹)</label>
+                <input id="dlg-fin" class="input" type="number" min="0" step="1000" formControlName="financialImpact" placeholder="Optional" />
+              </div>
+              <div class="field full">
+                <label for="dlg-policy">Escalation policy</label>
+                <fu-lookup-select kind="policy" formControlName="escalationPolicyId" selectId="dlg-policy" emptyLabel="Default policy" />
+              </div>
+            </div>
+          </details>
+
+          <!-- Dependencies -->
+          <details class="sec" [open]="isOpen('dependencies')" (toggle)="onToggle('dependencies', $event)">
+            <summary><span class="sec-title">Dependencies</span><span class="sec-sum">{{ summaries().dependencies }}</span></summary>
+            <div class="sec-body">
+              <fu-task-dependencies [rows]="taskForm.controls.dependencies" />
+            </div>
+          </details>
+
+          <!-- Supporting links -->
+          <details class="sec" [open]="isOpen('links')" (toggle)="onToggle('links', $event)">
+            <summary><span class="sec-title">Supporting links</span><span class="sec-sum">{{ summaries().links }}</span></summary>
+            <div class="sec-body stack" formArrayName="links">
+              @for (link of taskForm.controls.links.controls; track link; let i = $index) {
+                <div class="link-row" [formGroupName]="i">
+                  <input class="input input-sm" formControlName="title" placeholder="Title (optional)" [attr.aria-label]="'Link ' + (i + 1) + ' title'" />
+                  <input class="input input-sm" type="url" formControlName="url" placeholder="https://…" [attr.aria-label]="'Link ' + (i + 1) + ' address'" />
+                  <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Remove link ' + (i + 1)" (click)="removeLink(i)">
+                    <fu-icon name="x" [size]="14" />
+                  </button>
+                </div>
+              }
+              <div><button type="button" class="btn btn-sm" (click)="addLink()"><fu-icon name="link" /> Add link</button></div>
+            </div>
+          </details>
+
+          <!-- Attachments -->
+          <details class="sec" [open]="isOpen('attachments')" (toggle)="onToggle('attachments', $event)">
+            <summary><span class="sec-title">Attachments</span><span class="sec-sum">{{ summaries().attachments }}</span></summary>
+            <div class="sec-body stack">
+              @if (files().length) {
+                <ul class="files">
+                  @for (f of files(); track f.name + f.size; let i = $index) {
+                    <li>
+                      <fu-icon name="file" [size]="14" />
+                      <span class="grow truncate">{{ f.name }}</span>
+                      <span class="xsmall muted">{{ f.size | fileSize }}</span>
+                      <button type="button" class="btn btn-ghost btn-icon btn-xs" [attr.aria-label]="'Remove ' + f.name" (click)="removeFile(i)">
+                        <fu-icon name="x" [size]="14" />
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+              <div class="row wrap">
+                <input #fileInput type="file" multiple hidden (change)="addFiles(fileInput)" />
+                <button type="button" class="btn btn-sm" (click)="fileInput.click()"><fu-icon name="paperclip" /> Add files</button>
+                <span class="hint">Uploaded when you delegate.</span>
+              </div>
+            </div>
+          </details>
+        </form>
+
+        <aside class="side">
+          <fu-workload-panel [items]="workload()" [loading]="workloadLoading()" />
+        </aside>
+      </div>
+    } @else {
+      <div class="rec" (keydown)="onFormKey($event)">
+        <fu-recurring-form [form]="recurringForm" [collapsible]="true" idPrefix="dlg-rf">
+          <fu-workload-panel rf-side [items]="workload()" [loading]="workloadLoading()" />
+        </fu-recurring-form>
+      </div>
+    }
+  </div>
+
+  <ng-container modal-footer>
+    <span class="foot-hint xsmall muted">Ctrl+Enter to {{ submitLabel().toLowerCase() }}</span>
+    <button type="button" class="btn" (click)="requestClose()">Cancel</button>
+    @if (mode() === 'task') {
+      <button type="button" class="btn" [disabled]="busy()" (click)="submit(true)">Save as draft</button>
+    }
+    <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="submit(false)">
+      <fu-icon [name]="mode() === 'recurring' ? 'repeat' : 'send'" />
+      {{ busy() ? 'Saving…' : submitLabel() }}
+    </button>
+  </ng-container>
+</fu-modal>

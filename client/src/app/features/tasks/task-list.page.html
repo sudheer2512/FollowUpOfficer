@@ -1,0 +1,143 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Tasks</h1>
+      <div class="subtitle" aria-live="polite">
+        @if (data.value(); as page) {
+          <span class="num">{{ page.total }}</span> {{ page.total === 1 ? 'task' : 'tasks' }}
+          @if (chips().length) {
+            match {{ chips().length === 1 ? 'this filter' : 'these filters' }}
+          }
+        } @else {
+          Loading tasks…
+        }
+      </div>
+    </div>
+    <div class="actions">
+      <fu-saved-views [filter]="filter()" (apply)="navigate($event)" />
+      <button type="button" class="btn btn-primary" (click)="delegate.open()">
+        <fu-icon name="plus" /> Delegate <span class="kbd">N</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="Scope">
+      @for (s of scopes; track s.value) {
+        <button type="button" [class.active]="scope() === s.value" [attr.aria-pressed]="scope() === s.value" (click)="setScope(s.value)">{{ s.label }}</button>
+      }
+    </div>
+    <div class="segmented" role="group" aria-label="Open or closed tasks">
+      @for (o of openStates; track o.label) {
+        <button type="button" [class.active]="openState() === o.value" [attr.aria-pressed]="openState() === o.value" (click)="setOpen(o.value)">{{ o.label }}</button>
+      }
+    </div>
+    <span class="spacer"></span>
+    <div class="input-with-icon search">
+      <fu-icon name="search" [size]="15" />
+      <label for="tl-search" class="sr-only">Search tasks</label>
+      <input
+        id="tl-search"
+        class="input"
+        type="search"
+        placeholder="Search number, title, people…"
+        autocomplete="off"
+        [value]="searchText()"
+        (input)="onSearchInput($any($event.target).value)"
+        (keydown.enter)="applySearch()"
+        (keydown.escape)="clearSearch()"
+      />
+    </div>
+    <div class="row gap-4">
+      <label for="tl-sort" class="small muted nowrap">Sort</label>
+      <select id="tl-sort" class="select sort" [value]="sort()" (change)="setSort($any($event.target).value)">
+        @for (s of sorts; track s.value) {
+          <option [value]="s.value" [selected]="sort() === s.value">{{ s.label }}</option>
+        }
+      </select>
+    </div>
+    <button type="button" class="btn" [class.on]="showFilters()" [attr.aria-expanded]="showFilters()" (click)="toggleFilters()">
+      <fu-icon name="filter" [size]="15" /> Filters
+      @if (chips().length) {
+        <span class="count-pill accent">{{ chips().length }}</span>
+      }
+    </button>
+  </div>
+
+  @if (chips().length) {
+    <div class="chips-bar" role="group" aria-label="Active filters">
+      @for (c of chips(); track chipKey(c)) {
+        <span class="chip tone-accent">
+          {{ c.label }}
+          <button type="button" class="x" [attr.aria-label]="'Remove filter ' + c.label" (click)="removeChip(c)"><fu-icon name="x" [size]="12" /></button>
+        </span>
+      }
+      <button type="button" class="btn btn-link small" (click)="clearAll()">Clear all</button>
+    </div>
+  }
+
+  <div class="layout" [class.with-panel]="showFilters() && !narrow()">
+    @if (showFilters() && !narrow()) {
+      <aside class="card filters" aria-label="Filters">
+        <header class="card-header">
+          <h2>Filters</h2>
+          <span class="spacer"></span>
+          @if (chips().length) {
+            <button type="button" class="btn btn-xs btn-ghost" (click)="clearAll()">Reset</button>
+          }
+          <button type="button" class="btn btn-ghost btn-icon btn-xs" aria-label="Hide filters" (click)="toggleFilters()">
+            <fu-icon name="x" [size]="14" />
+          </button>
+        </header>
+        <div class="card-body">
+          <fu-task-filter-panel [filter]="filter()" (patch)="update($event)" />
+        </div>
+      </aside>
+    }
+
+    <section class="card results" aria-label="Task results">
+      @if (data.error()) {
+        <div class="card-body">
+          <div class="alert tone-danger" role="alert">
+            <fu-icon name="alert-circle" />
+            <span class="spacer">Couldn't load tasks. {{ data.error() }}</span>
+            <button type="button" class="btn btn-sm" (click)="reload()">Retry</button>
+          </div>
+        </div>
+      }
+      @if (data.loading() && !data.value()) {
+        <fu-skeleton variant="table" [rows]="8" />
+      } @else if (data.value(); as page) {
+        @if (!page.items.length) {
+          <fu-empty
+            icon="search"
+            title="No tasks match"
+            [message]="chips().length ? 'Try removing a filter or widening the scope.' : 'Delegated tasks appear here.'"
+          >
+            @if (chips().length) {
+              <button type="button" class="btn btn-sm mt-8" (click)="clearAll()">Clear filters</button>
+            }
+          </fu-empty>
+        } @else {
+          <div class="table-host" [class.stale]="data.loading()" [attr.aria-busy]="data.loading()">
+            <fu-task-table [tasks]="page.items" [sort]="sort()" (sortChange)="setSort($event)" />
+          </div>
+          <footer class="card-footer">
+            <fu-paginator [page]="page.page" [pageSize]="page.pageSize" [total]="page.total" (pageChange)="goToPage($event)" />
+          </footer>
+        }
+      }
+    </section>
+  </div>
+
+  @if (showFilters() && narrow()) {
+    <fu-drawer title="Filters" [subtitle]="chips().length ? chips().length + ' active' : ''" width="min(400px, 100vw)" (closed)="showFilters.set(false)">
+      <ng-container drawer-actions>
+        @if (chips().length) {
+          <button type="button" class="btn btn-sm btn-ghost" (click)="clearAll()">Reset</button>
+        }
+      </ng-container>
+      <fu-task-filter-panel [filter]="filter()" (patch)="update($event)" />
+    </fu-drawer>
+  }
+</div>

@@ -1,0 +1,71 @@
+<div class="page">
+  <div class="page-header">
+    <div class="titles">
+      <h1>Microsoft 365 simulator</h1>
+      <div class="subtitle">An emulated Microsoft 365 tenant for demos and resilience testing — no real mailbox or Teams is touched.</div>
+    </div>
+    <div class="actions">
+      <a class="btn" routerLink="/admin/monitor"><fu-icon name="activity" /> Integration monitor</a>
+    </div>
+  </div>
+
+  @if (system.info() && !system.isEmulator()) {
+    <div class="alert tone-warning mb-16" role="alert">
+      <fu-icon name="alert-triangle" />
+      <span>
+        The integration is running in <strong>{{ system.mode() || 'an unknown' }}</strong> mode, not <strong>Emulator</strong>.
+        The simulator only works when <span class="mono">Microsoft365:Mode</span> is set to <span class="mono">Emulator</span>; requests below will fail.
+      </span>
+    </div>
+  }
+
+  <section class="card intro">
+    <div class="card-body intro-body">
+      <div class="intro-icon" aria-hidden="true"><fu-icon name="plug" [size]="22" /></div>
+      <div class="intro-text">
+        <h2>How it works</h2>
+        <p>
+          FollowUp Officer talks to this emulated tenant through the <strong>real Microsoft Graph client</strong> — the same code, endpoints,
+          paging and delta queries it uses against Microsoft 365.
+        </p>
+        <ol class="steps">
+          <li><strong>Act as anyone.</strong> Send and reply to email, chat and post in channels as any user of the tenant.</li>
+          <li>
+            <strong>The normal sync imports it.</strong> Outlook and Teams sync jobs pick messages up on their next run (or use “Run sync now” in the
+            <a routerLink="/admin/monitor">integration monitor</a>), and replies are matched to their tasks.
+          </li>
+          <li><strong>Break things on purpose.</strong> Inject outages, throttling, auth failures and latency to watch retries, backoff, checkpoints and resyncs.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  @if (users.error()) {
+    <div class="alert tone-danger mt-16" role="alert">
+      <fu-icon name="alert-circle" />
+      <span class="spacer">The tenant directory could not be loaded: {{ users.error() }}</span>
+      <button type="button" class="btn btn-sm" (click)="reloadUsers()">Retry</button>
+    </div>
+  }
+
+  <fu-tabs class="mt-16" [tabs]="tabs" [active]="active()" (activeChange)="select($event)" ariaLabel="Simulator sections" />
+  <div class="mt-16">
+    @switch (active()) {
+      @case ('chats') {
+        <fu-sim-chats [users]="userList()" />
+      }
+      @case ('channels') {
+        <fu-sim-channels [users]="userList()" />
+      }
+      @case ('activity') {
+        <fu-sim-activity />
+      }
+      @case ('faults') {
+        <fu-sim-faults />
+      }
+      @default {
+        <fu-sim-mail [users]="userList()" />
+      }
+    }
+  </div>
+</div>
