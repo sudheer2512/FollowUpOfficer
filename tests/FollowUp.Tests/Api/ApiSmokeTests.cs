@@ -168,7 +168,7 @@ public sealed class ApiSmokeTests
             name = "New hire onboarding", category = "HR", priority = "High", criticality = "Important", requiresApproval = true, roles = new[] { "Owner" },
             items = new[] { new { key = "laptop", title = "Issue laptop", assigneeRole = "Owner", dueOffsetWorkingDays = 2 } }, approvalFlow = new[] { "Delegator" }, isActive = true,
         }));
-        Assert.Single(await Ok<List<TemplateDto>>(ceo.GetAsync("/api/templates")));
+        Assert.Contains(await Ok<List<TemplateDto>>(ceo.GetAsync("/api/templates")), t => t.Id == template.Id);   // plus the seeded standard templates
         await Ok<TemplateDto>(ceo.GetAsync($"/api/templates/{template.Id}"));
         var instantiated = await Ok<TaskDetail>(ceo.PostAsJsonAsync($"/api/templates/{template.Id}/instantiate", new
         {

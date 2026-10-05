@@ -1,5 +1,7 @@
 using FollowUp.Core;
 using FollowUp.Core.Platform;
+using FollowUp.Integrations;
+using FollowUp.AI;
 using Microsoft.Extensions.Hosting.WindowsServices;
 
 // FollowUp Officer background processor (spec §58–§65): the always-on host for the durable job engine.
@@ -18,9 +20,9 @@ var connectionString = builder.Configuration.GetConnectionString("FollowUp");
 var useSqlite = HostDatabase.UseSqlite(builder.Configuration, builder.Environment.ContentRootPath, ref connectionString);
 builder.Services.AddFollowUpCore(builder.Configuration, "Worker", connectionString, useSqlite);
 
-// INTEGRATION: AddMicrosoft365Integration + AddFollowUpAI are registered here after merge
-// builder.Services.AddMicrosoft365Integration(builder.Configuration, connectionString);
-// builder.Services.AddFollowUpAI(builder.Configuration);
+// Real ports: Microsoft Graph (or its emulator) and the AI layer. Fallbacks only fill gaps (TryAdd).
+builder.Services.AddMicrosoft365Integration(builder.Configuration, connectionString!, useSqlite);
+builder.Services.AddFollowUpAI(builder.Configuration);
 builder.Services.AddFallbackPorts();
 
 var host = builder.Build();

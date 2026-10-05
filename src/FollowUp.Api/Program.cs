@@ -1,6 +1,8 @@
 using FollowUp.Api.Infrastructure;
 using FollowUp.Core;
 using FollowUp.Core.Platform;
+using FollowUp.Integrations;
+using FollowUp.AI;
 using Microsoft.Extensions.Hosting.WindowsServices;
 
 // FollowUp Officer — HTTP API, SignalR hub and Angular host (spec §59: also installable as the Windows service "FollowUpOfficer.Api").
@@ -14,11 +16,12 @@ builder.Host.UseWindowsService(o => o.ServiceName = "FollowUpOfficer.Api");
 HostDatabase.NormalisePaths(builder.Configuration, builder.Environment.ContentRootPath);
 var connectionString = builder.Configuration.GetConnectionString("FollowUp");
 var useSqlite = HostDatabase.UseSqlite(builder.Configuration, builder.Environment.ContentRootPath, ref connectionString);
+builder.Services.AddFollowUpSeeders();
 builder.Services.AddFollowUpCore(builder.Configuration, "Api", connectionString, useSqlite);
 
-// INTEGRATION: AddMicrosoft365Integration + AddFollowUpAI are registered here after merge
-// builder.Services.AddMicrosoft365Integration(builder.Configuration, connectionString);
-// builder.Services.AddFollowUpAI(builder.Configuration);
+// Real ports: Microsoft Graph (or its emulator) and the AI layer. Fallbacks only fill gaps (TryAdd).
+builder.Services.AddMicrosoft365Integration(builder.Configuration, connectionString!, useSqlite);
+builder.Services.AddFollowUpAI(builder.Configuration);
 builder.Services.AddFallbackPorts();
 
 builder.Services.AddFollowUpApi(builder.Configuration);

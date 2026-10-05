@@ -1,3 +1,4 @@
+using FollowUp.Integrations.GraphEmulator;
 using FollowUp.Api.Infrastructure;
 
 namespace FollowUp.Api.Endpoints;
@@ -11,8 +12,8 @@ public static class SimulatorEndpoints
     public static RouteGroupBuilder MapSimulatorEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/m365-sim").WithTags("M365 simulator").RequireAuthorization(Policies.ExecutiveOrAdmin);
-        // INTEGRATION: AddMicrosoft365Integration + AddFollowUpAI are registered here after merge — enable the emulator console:
-        // group.MapGraphEmulatorConsole();
+        // Emulator console (returns 404 problems outside Emulator mode).
+        group.MapGraphEmulatorConsole();
         return group;
     }
 }

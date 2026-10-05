@@ -1,3 +1,4 @@
+using FollowUp.Integrations.GraphEmulator;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FollowUp.Api.Endpoints;
@@ -49,8 +50,9 @@ public static class ApiSetup
 
         app.MapFollowUpEndpoints();
         app.MapHub<EventsHub>("/hubs/events").RequireAuthorization();
-        // INTEGRATION: if FollowUp.Integrations serves the Graph-compatible emulator from this host, map it here after merge
-        // (it lives under /graph-emulator, outside the /api CSRF guard and the SPA fallback), e.g. app.MapGraphEmulator();
+        // The Graph-compatible emulator tenant (Microsoft365:Mode = Emulator) lives under /graph-emulator,
+        // outside the /api CSRF guard and the SPA fallback.
+        app.MapGraphEmulator();
         app.MapFallback(SpaFallbackAsync).AllowAnonymous();
         return app;
     }

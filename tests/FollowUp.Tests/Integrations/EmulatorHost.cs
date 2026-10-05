@@ -94,6 +94,9 @@ internal sealed class EmulatorHost : IAsyncDisposable
             ["Microsoft365:MaxRetryDelaySeconds"] = "0.05",
         };
         configure?.Invoke(settings);
+        // Isolate from the API's appsettings.json, which is copied into the test output (the test project references the API).
+        builder.Configuration.Sources.Clear();
+        if (kestrelBaseUrl is not null) settings["urls"] = kestrelBaseUrl;   // UseUrls is stored in configuration
         builder.Configuration.AddInMemoryCollection(settings);
         builder.Services.AddMicrosoft365Integration(builder.Configuration, connectionString, useSqlite);
         if (!useKestrel)
