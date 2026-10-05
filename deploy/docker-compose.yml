@@ -1,0 +1,55 @@
+# FollowUp Officer — container deployment (spec §59: automatic restart policy).
+#   docker compose -f deploy/docker-compose.yml up -d --build
+# Every service restarts automatically (crash, daemon restart, host reboot). The Worker is the always-on
+# background processor and resumes from database checkpoints; the API serves the UI and real-time updates.
+name: followup-officer
+
+x-app-env: &app-env
+  ConnectionStrings__FollowUp: "Server=sql;Database=FollowUpOfficer;User Id=sa;Password=${SA_PASSWORD:-FollowUp!Sql2026};TrustServerCertificate=True"
+  DataProtection__KeysPath: /data/keys
+  FollowUp__StoragePath: /data/attachments
+  FollowUp__PublicAppUrl: ${PUBLIC_URL:-http://localhost:5860}
+  FollowUp__SeedDemoData: "false"
+  Microsoft365__Mode: ${M365_MODE:-Disabled}
+  Microsoft365__TenantId: ${M365_TENANT_ID:-}
+  Microsoft365__ClientId: ${M365_CLIENT_ID:-}
+  Microsoft365__ClientSecret: ${M365_CLIENT_SECRET:-}
+  Ai__Provider: ${AI_PROVIDER:-Heuristic}
+  Ai__ApiKey: ${AI_API_KEY:-}
+
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:-FollowUp!Sql2026}
+    volumes: [sqldata:/var/opt/mssql]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q 'SELECT 1' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build: { context: .., dockerfile: deploy/Dockerfile, target: worker }
+    restart: unless-stopped
+    depends_on: { sql: { condition: service_healthy } }
+    environment:
+      <<: *app-env
+      Jobs__Enabled: "true"
+    volumes: [appdata:/data]
+
+  api:
+    build: { context: .., dockerfile: deploy/Dockerfile, target: api }
+    restart: unless-stopped
+    depends_on: { sql: { condition: service_healthy } }
+    environment:
+      <<: *app-env
+      Jobs__Enabled: "false"
+    ports: ["5860:5860"]
+    volumes: [appdata:/data]
+
+volumes:
+  sqldata:
+  appdata:
