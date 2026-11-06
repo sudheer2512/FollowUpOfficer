@@ -18,6 +18,7 @@ public static class SeedingRegistration
         services.AddSingleton<IStartupSeeder, EmulatorDatabaseSeeder>();
         services.AddSingleton<IStartupSeeder, ConfigurationSeeder>();
         services.AddSingleton<IStartupSeeder, DemoDataSeeder>();
+        services.AddSingleton<IStartupSeeder, FirstAdministratorSeeder>();
         return services;
     }
 }
