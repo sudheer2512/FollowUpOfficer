@@ -18,4 +18,9 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />
   </ItemGroup>
 
+  <!-- The Angular UI is built into wwwroot by `npm run build` in client/ (the Docker image adds it in a later stage). -->
+  <Target Name="WarnWhenUiNotBuilt" BeforeTargets="PrepareForPublish" Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\index.html')">
+    <Warning Text="wwwroot\index.html is missing: this publish contains the API but not the web UI. Run 'npm ci' and 'npm run build' in the client folder first (see docs/DEPLOY-IIS.md)." />
+  </Target>
+
 </Project>

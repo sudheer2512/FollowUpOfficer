@@ -76,6 +76,7 @@ sqlcmd -S "(localdb)\MSSQLLocalDB" -Q "ALTER DATABASE FollowUpOfficer SET SINGLE
 ## Deploy
 
 - **Windows (auto-start, restart on failure).** Run `deploy/install-windows-services.ps1` from an elevated PowerShell. It installs `FollowUpOfficer.Worker` (the background processor) and `FollowUpOfficer.Api` as Automatic (Delayed Start) services with recovery actions.
+- **IIS.** Run `deploy/install-iis.ps1` from an elevated PowerShell. It hosts the UI and API in IIS (in-process, at a site root or as an application under a path such as `http://localhost/followupofficer`) and installs the Worker as a Windows service. See [docs/DEPLOY-IIS.md](docs/DEPLOY-IIS.md).
 - **Containers.** Run `docker compose -f deploy/docker-compose.yml up -d --build`. It includes SQL Server, with `restart: unless-stopped` everywhere.
 - **Real Microsoft 365.** Set `Microsoft365:Mode=Graph` and the tenant, client id and secret, then grant the permissions listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#microsoft-graph-spec-71).
 - **LLM.** Set `Ai:Provider=Anthropic` (or `OpenAICompatible`) and `Ai:ApiKey`. Without them the heuristic engine is used. Any LLM failure falls back to it.

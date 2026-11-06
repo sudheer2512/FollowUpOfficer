@@ -5,6 +5,7 @@ import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../../shared/ui/toast.service';
 import { SessionState } from '../auth/session-state';
 import { SILENT_ERRORS, SKIP_AUTH_REDIRECT, problemMessage } from './problem';
+import { appUrl } from './app-base';
 
 /**
  * Cross-cutting API behaviour:
@@ -22,6 +23,8 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
   const session = inject(SessionState);
 
   const outgoing = req.clone({
+    // "/api/…" → "<base path>api/…" so the app also works under an IIS virtual application.
+    url: req.url.startsWith('/') ? appUrl(req.url) : req.url,
     withCredentials: true,
     setHeaders: { 'X-Requested-With': 'FollowUp' },
   });

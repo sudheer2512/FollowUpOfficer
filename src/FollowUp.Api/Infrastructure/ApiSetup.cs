@@ -2,7 +2,9 @@ using FollowUp.Integrations.GraphEmulator;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FollowUp.Api.Endpoints;
+using FollowUp.Core.Common;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 namespace FollowUp.Api.Infrastructure;
 
@@ -38,7 +40,20 @@ public static class ApiSetup
     {
         app.UseMiddleware<ExceptionMiddleware>();
         app.UseMiddleware<SecurityHeadersMiddleware>();
-        app.UseDefaultFiles();
+        // Sub-path hosting behind a reverse proxy ("PathBase": "/followup"). Under IIS the ASP.NET Core Module sets
+        // the virtual application path itself, and UsePathBase is then a no-op.
+        if (app.Configuration["PathBase"] is { Length: > 1 } pathBase) app.UsePathBase(pathBase.TrimEnd('/'));
+        // IIS matches the application path case-insensitively but browsers compare cookie paths case-sensitively, so
+        // /FollowupOfficer and /followupofficer would be separate sign-ins: FollowUp:PublicAppUrl names the one spelling.
+        var publicUrl = app.Services.GetRequiredService<IOptions<FollowUpOptions>>().Value.PublicAppUrl;
+        if (PublicPathBase(publicUrl) is { } publicPathBase) app.Use((ctx, next) => RedirectOtherSpellingAsync(ctx, next, publicPathBase));
+        // index.html is always rendered by the SPA fallback (it writes the <base href> for the current path base),
+        // so the static file middleware never serves it directly.
+        app.Use((ctx, next) =>
+        {
+            if (ctx.Request.Path.Equals("/index.html", StringComparison.OrdinalIgnoreCase)) ctx.Request.Path = "/";
+            return next(ctx);
+        });
         app.UseStaticFiles();
         app.UseRouting();
         app.UseCors();
@@ -55,6 +70,21 @@ public static class ApiSetup
         app.MapGraphEmulator();
         app.MapFallback(SpaFallbackAsync).AllowAnonymous();
         return app;
+    }
+
+    /// <summary>The path of the public URL without its trailing slash, or null when the app is public at a site root.</summary>
+    private static string? PublicPathBase(string publicUrl) =>
+        Uri.TryCreate(publicUrl, UriKind.Absolute, out var url) && url.AbsolutePath.TrimEnd('/') is { Length: > 0 } path ? path : null;
+
+    /// <summary>Page loads under another spelling of the virtual path move to the public one; writes are left alone.</summary>
+    private static Task RedirectOtherSpellingAsync(HttpContext ctx, RequestDelegate next, string publicPathBase)
+    {
+        var pathBase = ctx.Request.PathBase.Value;
+        var otherSpelling = string.Equals(pathBase, publicPathBase, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(pathBase, publicPathBase, StringComparison.Ordinal);
+        if (!otherSpelling || !(HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method))) return next(ctx);
+        ctx.Response.Redirect(publicPathBase + ctx.Request.Path + ctx.Request.QueryString);
+        return Task.CompletedTask;
     }
 
     /// <summary>Client-side routes get index.html; unknown /api, /hubs and /graph-emulator paths get a 404 problem.</summary>
@@ -74,8 +104,13 @@ public static class ApiSetup
             await Problems.WriteAsync(ctx, StatusCodes.Status404NotFound, "Not found", "The web UI has not been built (wwwroot/index.html is missing).", "ui_missing");
             return;
         }
+        // The same build works at a site root and under an IIS virtual application: <base href> follows the path base.
+        string html;
+        using (var reader = new StreamReader(index.CreateReadStream())) html = await reader.ReadToEndAsync(ctx.RequestAborted);
+        var baseHref = (ctx.Request.PathBase.Value ?? "").TrimEnd('/') + "/";
+        html = html.Replace("<base href=\"/\">", $"<base href=\"{System.Net.WebUtility.HtmlEncode(baseHref)}\">", StringComparison.OrdinalIgnoreCase);
         ctx.Response.ContentType = "text/html; charset=utf-8";
         ctx.Response.Headers.CacheControl = "no-cache";
-        await ctx.Response.SendFileAsync(index);
+        await ctx.Response.WriteAsync(html, ctx.RequestAborted);
     }
 }

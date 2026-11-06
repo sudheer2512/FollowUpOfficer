@@ -1,3 +1,4 @@
+import { appUrl } from '../http/app-base';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { HubConnection } from '@microsoft/signalr';
@@ -71,7 +72,7 @@ export class RealtimeService {
     try {
       const signalR = await import('@microsoft/signalr');
       connection = new signalR.HubConnectionBuilder()
-        .withUrl('/hubs/events', {
+        .withUrl(appUrl('/hubs/events'), {
           withCredentials: true,
           headers: { 'X-Requested-With': 'FollowUp' },
         })

@@ -1,3 +1,4 @@
+import { appUrl } from '../http/app-base';
 import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -173,7 +174,7 @@ export class TasksApi {
   }
 
   attachmentUrl(attachmentId: Guid): string {
-    return `/api/attachments/${enc(attachmentId)}`;
+    return appUrl(`/api/attachments/${enc(attachmentId)}`);
   }
 
   workload(employeeIds: Guid[], teamId?: Guid | null): Observable<WorkloadDto[]> {

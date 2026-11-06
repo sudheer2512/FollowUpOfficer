@@ -5,6 +5,8 @@ obj/
 node_modules/
 .angular/
 dist/
+/out/
+/publish/
 src/FollowUp.Api/wwwroot/
 src/FollowUp.Api/data/
 src/FollowUp.Worker/data/

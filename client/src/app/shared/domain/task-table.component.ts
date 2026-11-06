@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { appUrl } from '../../core/http/app-base';
 import { TaskListItem } from '../../core/models/task.models';
 import { AgoPipe } from '../pipes/format.pipes';
 import { EmptyStateComponent } from '../ui/empty-state.component';
@@ -232,7 +233,7 @@ export class TaskTableComponent {
     const target = e.target as HTMLElement;
     if (target.closest('a') && e.type === 'click') return; // the link handles it
     if (e instanceof MouseEvent && (e.ctrlKey || e.metaKey)) {
-      window.open(`/tasks/${t.id}`, '_blank');
+      window.open(appUrl(`/tasks/${t.id}`), '_blank');
       return;
     }
     void this.router.navigate(['/tasks', t.id]);

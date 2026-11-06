@@ -9,7 +9,9 @@ using Microsoft.Extensions.Hosting.WindowsServices;
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
-    ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null,
+    // Windows service and IIS (APP_POOL_ID is set for IIS worker processes): the content root is the published folder.
+    ContentRootPath = WindowsServiceHelpers.IsWindowsService() || Environment.GetEnvironmentVariable("APP_POOL_ID") is not null
+        ? AppContext.BaseDirectory : null,
 });
 builder.Host.UseWindowsService(o => o.ServiceName = "FollowUpOfficer.Api");
 
