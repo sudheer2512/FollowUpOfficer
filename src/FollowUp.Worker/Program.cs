@@ -2,6 +2,7 @@ using FollowUp.Core;
 using FollowUp.Core.Platform;
 using FollowUp.Integrations;
 using FollowUp.AI;
+using FollowUp.Worker;
 using Microsoft.Extensions.Hosting.WindowsServices;
 
 // FollowUp Officer background processor (spec §58–§65): the always-on host for the durable job engine.
@@ -15,6 +16,10 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 builder.Services.AddWindowsService(o => o.ServiceName = "FollowUpOfficer.Worker");
 builder.Services.AddSystemd();
 
+// Registered first so the job engine starts on a migrated database. Hosted services start after the service has
+// reported "running" to Windows, so a slow or unreachable SQL Server cannot trip the start time-out and hide the error.
+builder.Services.AddHostedService<DatabaseStartup>();
+
 HostDatabase.NormalisePaths(builder.Configuration, builder.Environment.ContentRootPath);
 var connectionString = builder.Configuration.GetConnectionString("FollowUp");
 var useSqlite = HostDatabase.UseSqlite(builder.Configuration, builder.Environment.ContentRootPath, ref connectionString);
@@ -25,9 +30,4 @@ builder.Services.AddMicrosoft365Integration(builder.Configuration, connectionStr
 builder.Services.AddFollowUpAI(builder.Configuration);
 builder.Services.AddFallbackPorts();
 
-var host = builder.Build();
-var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("FollowUp.Worker");
-
-// Migrations retry while SQL Server is still starting (boot order). Seeders run in the API host only.
-await StartupInitializer.InitialiseAsync(host.Services, logger, runSeeders: false);
-await host.RunAsync();
+await builder.Build().RunAsync();
